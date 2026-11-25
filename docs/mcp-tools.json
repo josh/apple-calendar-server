@@ -1,0 +1,545 @@
+{
+  "tools": [
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read every account that has an accessible event calendar.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "name": "accounts_list",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "description": "Accounts, in identifier order.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "description": "Unique identifier of the account. Treat this value as opaque.",
+                  "type": "string"
+                },
+                "name": {
+                  "description": "The name of the account.",
+                  "type": "string"
+                }
+              },
+              "required": ["id", "name"],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["items"],
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read one account by ID; returns null when absent.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Unique identifier of the account.",
+            "type": "string"
+          }
+        },
+        "required": ["id"],
+        "type": "object"
+      },
+      "name": "accounts_get",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "account": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "description": "Unique identifier of the account. Treat this value as opaque.",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "The name of the account.",
+                    "type": "string"
+                  }
+                },
+                "required": ["id", "name"],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The account, or null when absent."
+          }
+        },
+        "required": ["account"],
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read event calendars filtered by name, account IDs, editability, and subscription. Filters intersect. orderBy.direction selects case-insensitive name ordering with ID ascending ties; omission uses identifier order. Pagination uses limit and cursor; keep the criteria unchanged across pages.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "description": "nextCursor from the previous page; omit for the first page.",
+            "type": "string"
+          },
+          "filter": {
+            "additionalProperties": false,
+            "properties": {
+              "accountIds": {
+                "description": "Match calendars in any of these accounts, intersected with the parent scope; [] matches nothing.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "allowsContentModifications": {
+                "description": "Match whether events in the calendar can be modified.",
+                "type": "boolean"
+              },
+              "query": {
+                "description": "Case-insensitive substring of the calendar name.",
+                "type": "string"
+              },
+              "subscribed": {
+                "description": "Match subscribed or unsubscribed calendars.",
+                "type": "boolean"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "limit": {
+            "default": 50,
+            "description": "Maximum items in the page, from 1 through 100; defaults to 50.",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "orderBy": {
+            "additionalProperties": false,
+            "properties": {
+              "direction": {
+                "description": "Direction of name ordering. Ties use identifier order; without orderBy, calendars use identifier order.",
+                "enum": ["ASC", "DESC"],
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "calendars_list",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "description": "Calendars in this page.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "allowsCalendarModifications": {
+                  "description": "Whether the calendar's own properties can be edited and the calendar deleted: it must allow content changes and be neither immutable nor subscribed.",
+                  "type": "boolean"
+                },
+                "allowsContentModifications": {
+                  "description": "Whether events can be added, edited, and deleted in this calendar.",
+                  "type": "boolean"
+                },
+                "color": {
+                  "description": "The color of the calendar as an sRGB #RRGGBBAA hex string.",
+                  "type": "string"
+                },
+                "id": {
+                  "description": "Unique identifier of the calendar. Treat this value as opaque.",
+                  "type": "string"
+                },
+                "immutable": {
+                  "description": "Whether the calendar is fixed by the system, such as Birthdays, and cannot be edited or deleted.",
+                  "type": "boolean"
+                },
+                "name": {
+                  "description": "The name of the calendar.",
+                  "type": "string"
+                },
+                "source": {
+                  "additionalProperties": false,
+                  "description": "The account that owns the calendar.",
+                  "properties": {
+                    "id": {
+                      "description": "Unique identifier of the account. Treat this value as opaque.",
+                      "type": "string"
+                    },
+                    "title": {
+                      "description": "The name of the account.",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "EventKit source type number.",
+                      "type": "integer"
+                    }
+                  },
+                  "required": ["id", "title", "type"],
+                  "type": "object"
+                },
+                "subscribed": {
+                  "description": "Whether the calendar is a subscription.",
+                  "type": "boolean"
+                },
+                "supportedAvailabilities": {
+                  "description": "Availability values events in this calendar can store; empty when the calendar does not support availability.",
+                  "items": {
+                    "enum": [
+                      "NOT_SUPPORTED",
+                      "BUSY",
+                      "FREE",
+                      "TENTATIVE",
+                      "UNAVAILABLE"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "type": {
+                  "description": "How the calendar is stored: local, CalDAV (including iCloud), Exchange, a subscription, or the Birthdays calendar.",
+                  "enum": [
+                    "LOCAL",
+                    "CALDAV",
+                    "EXCHANGE",
+                    "SUBSCRIPTION",
+                    "BIRTHDAY",
+                    "UNKNOWN"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "source",
+                "type",
+                "allowsContentModifications",
+                "allowsCalendarModifications",
+                "subscribed",
+                "immutable",
+                "supportedAvailabilities"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "nextCursor": {
+            "description": "Cursor for the next page; omitted on the last page.",
+            "type": "string"
+          },
+          "totalCount": {
+            "description": "Number of matching calendars before pagination.",
+            "type": "integer"
+          }
+        },
+        "required": ["items", "totalCount"],
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read one calendar by ID; returns null when absent.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Unique identifier of the calendar.",
+            "type": "string"
+          }
+        },
+        "required": ["id"],
+        "type": "object"
+      },
+      "name": "calendars_get",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "calendar": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "allowsCalendarModifications": {
+                    "description": "Whether the calendar's own properties can be edited and the calendar deleted: it must allow content changes and be neither immutable nor subscribed.",
+                    "type": "boolean"
+                  },
+                  "allowsContentModifications": {
+                    "description": "Whether events can be added, edited, and deleted in this calendar.",
+                    "type": "boolean"
+                  },
+                  "color": {
+                    "description": "The color of the calendar as an sRGB #RRGGBBAA hex string.",
+                    "type": "string"
+                  },
+                  "id": {
+                    "description": "Unique identifier of the calendar. Treat this value as opaque.",
+                    "type": "string"
+                  },
+                  "immutable": {
+                    "description": "Whether the calendar is fixed by the system, such as Birthdays, and cannot be edited or deleted.",
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "description": "The name of the calendar.",
+                    "type": "string"
+                  },
+                  "source": {
+                    "additionalProperties": false,
+                    "description": "The account that owns the calendar.",
+                    "properties": {
+                      "id": {
+                        "description": "Unique identifier of the account. Treat this value as opaque.",
+                        "type": "string"
+                      },
+                      "title": {
+                        "description": "The name of the account.",
+                        "type": "string"
+                      },
+                      "type": {
+                        "description": "EventKit source type number.",
+                        "type": "integer"
+                      }
+                    },
+                    "required": ["id", "title", "type"],
+                    "type": "object"
+                  },
+                  "subscribed": {
+                    "description": "Whether the calendar is a subscription.",
+                    "type": "boolean"
+                  },
+                  "supportedAvailabilities": {
+                    "description": "Availability values events in this calendar can store; empty when the calendar does not support availability.",
+                    "items": {
+                      "enum": [
+                        "NOT_SUPPORTED",
+                        "BUSY",
+                        "FREE",
+                        "TENTATIVE",
+                        "UNAVAILABLE"
+                      ],
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": {
+                    "description": "How the calendar is stored: local, CalDAV (including iCloud), Exchange, a subscription, or the Birthdays calendar.",
+                    "enum": [
+                      "LOCAL",
+                      "CALDAV",
+                      "EXCHANGE",
+                      "SUBSCRIPTION",
+                      "BIRTHDAY",
+                      "UNKNOWN"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "source",
+                  "type",
+                  "allowsContentModifications",
+                  "allowsCalendarModifications",
+                  "subscribed",
+                  "immutable",
+                  "supportedAvailabilities"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The calendar, or null when absent."
+          }
+        },
+        "required": ["calendar"],
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Read the default calendar for new events and its account; unavailable defaults return null.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "name": "defaults_get",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "account": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "description": "Unique identifier of the account. Treat this value as opaque.",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "The name of the account.",
+                    "type": "string"
+                  }
+                },
+                "required": ["id", "name"],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The default calendar's account, or null."
+          },
+          "calendar": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "allowsCalendarModifications": {
+                    "description": "Whether the calendar's own properties can be edited and the calendar deleted: it must allow content changes and be neither immutable nor subscribed.",
+                    "type": "boolean"
+                  },
+                  "allowsContentModifications": {
+                    "description": "Whether events can be added, edited, and deleted in this calendar.",
+                    "type": "boolean"
+                  },
+                  "color": {
+                    "description": "The color of the calendar as an sRGB #RRGGBBAA hex string.",
+                    "type": "string"
+                  },
+                  "id": {
+                    "description": "Unique identifier of the calendar. Treat this value as opaque.",
+                    "type": "string"
+                  },
+                  "immutable": {
+                    "description": "Whether the calendar is fixed by the system, such as Birthdays, and cannot be edited or deleted.",
+                    "type": "boolean"
+                  },
+                  "name": {
+                    "description": "The name of the calendar.",
+                    "type": "string"
+                  },
+                  "source": {
+                    "additionalProperties": false,
+                    "description": "The account that owns the calendar.",
+                    "properties": {
+                      "id": {
+                        "description": "Unique identifier of the account. Treat this value as opaque.",
+                        "type": "string"
+                      },
+                      "title": {
+                        "description": "The name of the account.",
+                        "type": "string"
+                      },
+                      "type": {
+                        "description": "EventKit source type number.",
+                        "type": "integer"
+                      }
+                    },
+                    "required": ["id", "title", "type"],
+                    "type": "object"
+                  },
+                  "subscribed": {
+                    "description": "Whether the calendar is a subscription.",
+                    "type": "boolean"
+                  },
+                  "supportedAvailabilities": {
+                    "description": "Availability values events in this calendar can store; empty when the calendar does not support availability.",
+                    "items": {
+                      "enum": [
+                        "NOT_SUPPORTED",
+                        "BUSY",
+                        "FREE",
+                        "TENTATIVE",
+                        "UNAVAILABLE"
+                      ],
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "type": {
+                    "description": "How the calendar is stored: local, CalDAV (including iCloud), Exchange, a subscription, or the Birthdays calendar.",
+                    "enum": [
+                      "LOCAL",
+                      "CALDAV",
+                      "EXCHANGE",
+                      "SUBSCRIPTION",
+                      "BIRTHDAY",
+                      "UNKNOWN"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "source",
+                  "type",
+                  "allowsContentModifications",
+                  "allowsCalendarModifications",
+                  "subscribed",
+                  "immutable",
+                  "supportedAvailabilities"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The default calendar, or null when unavailable."
+          }
+        },
+        "required": ["calendar", "account"],
+        "type": "object"
+      }
+    }
+  ]
+}

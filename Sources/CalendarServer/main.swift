@@ -24,13 +24,15 @@ func fail(_ error: Error) -> Never {
 }
 
 // launchd starts the server and owns its sockets; CALENDAR_* environment variables in
-// the plist configure it. The only arguments are --help and the developer dump of the
-// GraphQL schema.
+// the plist configure it. The only arguments are --help and the developer dumps of the
+// API docs.
 Task.detached {
   do {
     let arguments = Array(CommandLine.arguments.dropFirst())
     if arguments == ["--help"] || arguments == ["-h"] {
       print(usage)
+    } else if arguments == ["--dump-mcp-tools"] {
+      print(try mcpToolsJSON())
     } else if arguments == ["--dump-graphql-schema"] {
       print(try graphQLSchemaSDL())
     } else if !arguments.isEmpty {

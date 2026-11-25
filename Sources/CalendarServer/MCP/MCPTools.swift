@@ -1,0 +1,420 @@
+import Foundation
+import MCP
+import NIOHTTP1
+
+private struct PageOutput<Item: Encodable>: Encodable {
+  let items: [Item]
+  let totalCount: Int
+  let nextCursor: String?
+  enum CodingKeys: String, CodingKey { case items, totalCount, nextCursor }
+}
+private struct AccountOutput: Encodable {
+  let account: AccountRecord?
+  enum CodingKeys: CodingKey { case account }
+  func encode(to encoder: Encoder) throws {
+    var c = encoder.container(keyedBy: CodingKeys.self)
+    try c.encode(account, forKey: .account)
+  }
+}
+private struct AccountsOutput: Encodable {
+  let items: [AccountRecord]
+  enum CodingKeys: String, CodingKey { case items }
+}
+private struct CalendarOutput: Encodable {
+  let calendar: CalendarRecord?
+  enum CodingKeys: CodingKey { case calendar }
+  func encode(to encoder: Encoder) throws {
+    var c = encoder.container(keyedBy: CodingKeys.self)
+    try c.encode(calendar, forKey: .calendar)
+  }
+}
+private struct DefaultsOutput: Encodable {
+  let calendar: CalendarRecord?
+  let account: AccountRecord?
+  enum CodingKeys: CodingKey { case calendar, account }
+  func encode(to encoder: Encoder) throws {
+    var c = encoder.container(keyedBy: CodingKeys.self)
+    try c.encode(calendar, forKey: .calendar)
+    try c.encode(account, forKey: .account)
+  }
+}
+private func describe(_ value: Value, _ text: String) -> Value {
+  guard case .object(var object) = value else { return value }
+  object["description"] = .string(text)
+  return .object(object)
+}
+private func object(_ properties: [String: Value], required: [String] = []) -> Value {
+  .object([
+    "type": .string(JSONType.object.rawValue), "properties": .object(properties),
+    "required": .array(required.map(Value.string)), "additionalProperties": false,
+  ])
+}
+// An object schema whose property names are the coding keys of the type it describes,
+// so the schema cannot name a field the encoder or decoder does not use.
+private func schema<Key: CodingKey>(
+  _: Key.Type, _ properties: KeyValuePairs<Key, Value>, required: [Key] = []
+) -> Value {
+  object(
+    Dictionary(uniqueKeysWithValues: properties.map { ($0.key.stringValue, $0.value) }),
+    required: required.map(\.stringValue))
+}
+// JSON Schema type names.
+private enum JSONType: String { case object, array, string, integer, number, boolean, null }
+// A value of one JSON type, with optional keywords such as minimum or default.
+private func primitive(_ type: JSONType, _ keywords: [String: Value] = [:]) -> Value {
+  .object(keywords.merging(["type": .string(type.rawValue)]) { _, type in type })
+}
+private func array(_ item: Value) -> Value {
+  .object(["type": .string(JSONType.array.rawValue), "items": item])
+}
+private func enumeration(_ values: [String]) -> Value {
+  primitive(.string, ["enum": .array(values.map(Value.string))])
+}
+private func nullable(_ value: Value) -> Value {
+  .object(["anyOf": .array([value, primitive(.null)])])
+}
+private func toolsCatalog() -> [Tool] {
+  let integer = primitive(.integer)
+  let string = primitive(.string)
+  let boolean = primitive(.boolean)
+  let limit = describe(
+    primitive(.integer, ["minimum": 1, "maximum": 100, "default": 50]),
+    "Maximum items in the page, from 1 through 100; defaults to 50.")
+  let cursor = describe(
+    string, "nextCursor from the previous page; omit for the first page.")
+  let direction = enumeration(SortDirection.allCases.map(\.rawValue))
+  func page<Item: Encodable>(_: Item.Type, _ item: Value, _ items: String, _ totalCount: String)
+    -> Value
+  {
+    schema(
+      PageOutput<Item>.CodingKeys.self,
+      [
+        .items: describe(array(item), items),
+        .totalCount: describe(integer, totalCount),
+        .nextCursor: describe(string, "Cursor for the next page; omitted on the last page."),
+      ], required: [.items, .totalCount])
+  }
+  func byID(_ noun: String) -> Value {
+    schema(
+      IDArguments.CodingKeys.self,
+      [.id: describe(string, "Unique identifier of the \(noun).")], required: [.id])
+  }
+  let account = schema(
+    AccountRecord.CodingKeys.self,
+    [
+      .id: describe(string, FieldDocs.Account.id),
+      .name: describe(string, FieldDocs.Account.name),
+    ], required: [.id, .name])
+  let source = schema(
+    SourceRecord.CodingKeys.self,
+    [
+      .id: describe(string, FieldDocs.Account.id),
+      .title: describe(string, FieldDocs.Account.name),
+      .type: describe(integer, "EventKit source type number."),
+    ], required: [.id, .title, .type])
+  let calendar = schema(
+    CalendarRecord.CodingKeys.self,
+    [
+      .id: describe(string, FieldDocs.Calendar.id),
+      .name: describe(string, FieldDocs.Calendar.name),
+      .color: describe(string, FieldDocs.Calendar.color),
+      .source: describe(source, "The account that owns the calendar."),
+      .type: describe(
+        enumeration(CalendarType.allCases.map(\.rawValue)), FieldDocs.Calendar.type),
+      .allowsContentModifications: describe(
+        boolean, FieldDocs.Calendar.allowsContentModifications),
+      .allowsCalendarModifications: describe(
+        boolean, FieldDocs.Calendar.allowsCalendarModifications),
+      .subscribed: describe(boolean, FieldDocs.Calendar.subscribed),
+      .immutable: describe(boolean, FieldDocs.Calendar.immutable),
+      .supportedAvailabilities: describe(
+        array(enumeration(EventAvailability.allCases.map(\.rawValue))),
+        FieldDocs.Calendar.supportedAvailabilities),
+    ],
+    required: [
+      .id, .name, .source, .type, .allowsContentModifications, .allowsCalendarModifications,
+      .subscribed, .immutable, .supportedAvailabilities,
+    ])
+  let calendarSearch = schema(
+    CalendarSearchArguments.CodingKeys.self,
+    [
+      .filter: schema(
+        CalendarSearchArguments.Filter.CodingKeys.self,
+        [
+          .query: describe(string, FieldDocs.CalendarFilter.query),
+          .accountIds: describe(array(string), FieldDocs.CalendarFilter.accountIds),
+          .allowsContentModifications: describe(
+            boolean, FieldDocs.CalendarFilter.allowsContentModifications),
+          .subscribed: describe(boolean, FieldDocs.CalendarFilter.subscribed),
+        ]),
+      .orderBy: schema(
+        CalendarSearchArguments.Order.CodingKeys.self,
+        [.direction: describe(direction, FieldDocs.CalendarOrder.direction)]),
+      .limit: limit, .cursor: cursor,
+    ])
+  let annotations = Tool.Annotations(
+    readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false)
+  let noArguments = object([:])
+  return [
+    Tool(
+      name: ToolName.accountsList.rawValue,
+      description: "Read every account that has an accessible event calendar.",
+      inputSchema: noArguments, annotations: annotations,
+      outputSchema: schema(
+        AccountsOutput.CodingKeys.self,
+        [.items: describe(array(account), "Accounts, in identifier order.")], required: [.items])),
+    Tool(
+      name: ToolName.accountsGet.rawValue,
+      description: "Read one account by ID; returns null when absent.",
+      inputSchema: byID("account"), annotations: annotations,
+      outputSchema: schema(
+        AccountOutput.CodingKeys.self,
+        [.account: describe(nullable(account), "The account, or null when absent.")],
+        required: [.account])),
+    Tool(
+      name: ToolName.calendarsList.rawValue,
+      description:
+        "Read event calendars filtered by name, account IDs, editability, and subscription. Filters intersect. orderBy.direction selects case-insensitive name ordering with ID ascending ties; omission uses identifier order. Pagination uses limit and cursor; keep the criteria unchanged across pages.",
+      inputSchema: calendarSearch, annotations: annotations,
+      outputSchema: page(
+        CalendarRecord.self, calendar, FieldDocs.CalendarPage.items,
+        FieldDocs.CalendarPage.totalCount)),
+    Tool(
+      name: ToolName.calendarsGet.rawValue,
+      description: "Read one calendar by ID; returns null when absent.",
+      inputSchema: byID("calendar"), annotations: annotations,
+      outputSchema: schema(
+        CalendarOutput.CodingKeys.self,
+        [.calendar: describe(nullable(calendar), "The calendar, or null when absent.")],
+        required: [.calendar])),
+    Tool(
+      name: ToolName.defaultsGet.rawValue,
+      description:
+        "Read the default calendar for new events and its account; unavailable defaults return null.",
+      inputSchema: noArguments, annotations: annotations,
+      outputSchema: schema(
+        DefaultsOutput.CodingKeys.self,
+        [
+          .calendar: describe(
+            nullable(calendar), "The default calendar, or null when unavailable."),
+          .account: describe(nullable(account), "The default calendar's account, or null."),
+        ], required: [.calendar, .account])),
+  ]
+}
+// MCP inputs omit optional values; an explicit null anywhere is invalid.
+private func rejectNulls(_ value: Value) throws {
+  switch value {
+  case .null: throw ServerError.invalidArgument("Omit optional MCP inputs instead of sending null")
+  case .object(let object): for value in object.values { try rejectNulls(value) }
+  case .array(let array): for value in array { try rejectNulls(value) }
+  default: break
+  }
+}
+private func result<T: Encodable>(_ value: T) throws -> CallTool.Result {
+  let bytes = try JSONEncoder().encode(value)
+  return try .init(
+    content: [.text(text: String(decoding: bytes, as: UTF8.self), annotations: nil, _meta: nil)],
+    structuredContent: try JSONDecoder().decode(Value.self, from: bytes), isError: false)
+}
+// Tool names are the MCP contract; the catalog and dispatch both use these cases.
+enum ToolName: String {
+  case accountsGet = "accounts_get"
+  case accountsList = "accounts_list"
+  case calendarsGet = "calendars_get"
+  case calendarsList = "calendars_list"
+  case defaultsGet = "defaults_get"
+}
+private func callTool(_ tool: ToolName, _ params: CallTool.Parameters) async throws
+  -> CallTool.Result
+{
+  let args = params.arguments ?? [:]
+  try rejectNulls(.object(args))
+  func arguments<T: Decodable>(_ type: T.Type) throws -> T { try decodeInput(type, from: args) }
+  func noArguments() throws {
+    guard args.isEmpty else { throw ServerError.invalidArgument("Unknown input field") }
+  }
+  func ids(_ field: [String]?, _ name: String) throws -> [String]? {
+    if field?.contains("") == true {
+      throw ServerError.invalidArgument("\(name) must contain nonempty identifiers")
+    }
+    return field
+  }
+  // The page at the cursor offset; nextCursor is the following page's offset, and the
+  // client keeps the criteria unchanged.
+  func page<Item: Encodable>(
+    _ items: [Item], limit: Int?, cursor: String?
+  ) throws -> PageOutput<Item> {
+    let limit = limit ?? 50
+    guard (1...100).contains(limit) else {
+      throw ServerError.invalidArgument("limit must be 1...100")
+    }
+    let offset =
+      try cursor.map { token in
+        guard let value = Int(token), value >= 0 else {
+          throw ServerError.invalidArgument(
+            "cursor must be a nextCursor string from the previous response. Omit cursor for the first page."
+          )
+        }
+        return value
+      } ?? 0
+    let pageItems = Array(items.dropFirst(offset).prefix(limit))
+    let end = offset + pageItems.count
+    return PageOutput(
+      items: pageItems, totalCount: items.count, nextCursor: end < items.count ? String(end) : nil)
+  }
+  func calendars() async throws -> CalendarData { try await onMainActor { try readCalendars() } }
+  switch tool {
+  case .accountsGet:
+    let id = try arguments(IDArguments.self).id
+    return try result(AccountOutput(account: await calendars().accounts.first { $0.id == id }))
+  case .accountsList:
+    try noArguments()
+    return try result(AccountsOutput(items: await calendars().accounts))
+  case .calendarsList:
+    let search = try arguments(CalendarSearchArguments.self)
+    var criteria = Search()
+    if let filter = search.filter {
+      criteria.query = filter.query
+      criteria.accountIds = try ids(filter.accountIds, "accountIds")
+      criteria.allowsContentModifications = filter.allowsContentModifications
+      criteria.subscribed = filter.subscribed
+    }
+    if let order = search.orderBy {
+      criteria.sortCalendarsByName = true
+      criteria.direction = order.direction ?? .ascending
+    }
+    return try await result(
+      page(criteria.calendars(calendars()), limit: search.limit, cursor: search.cursor))
+  case .calendarsGet:
+    let id = try arguments(IDArguments.self).id
+    return try result(CalendarOutput(calendar: await calendars().calendars.first { $0.id == id }))
+  case .defaultsGet:
+    try noArguments()
+    let data = try await calendars()
+    return try result(
+      DefaultsOutput(calendar: data.defaultCalendar, account: data.defaultAccount))
+  }
+}
+private let tools = toolsCatalog()
+// A tool without readOnlyHint requires write access.
+private let readOnlyTools = Set(tools.filter { $0.annotations.readOnlyHint == true }.map(\.name))
+
+func mcpToolsJSON() throws -> String {
+  let encoder = JSONEncoder()
+  encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+  return String(decoding: try encoder.encode(ListTools.Result(tools: tools)), as: UTF8.self)
+}
+
+// Tool errors are JSON like successful results, with the code clients act on.
+private struct ToolError: Encodable {
+  struct Body: Encodable {
+    let code: ErrorCode
+    let message: String
+  }
+  let error: Body
+}
+private func errorText(_ error: Error) -> String {
+  let server = error as? ServerError
+  let payload = ToolError(
+    error: .init(
+      code: server?.code ?? .internalError, message: server?.message ?? String(describing: error)))
+  // Sorted keys put code before message; JSONEncoder does not keep declaration order.
+  let encoder = JSONEncoder()
+  encoder.outputFormatting = .sortedKeys
+  // A code and a message are plain strings, which always encode.
+  return String(decoding: try! encoder.encode(payload), as: UTF8.self)
+}
+
+// The JSON-RPC method of a request body, for logging.
+private func jsonRPCMethod(_ body: Data) -> String {
+  switch try? JSONDecoder().decode(RPCEnvelope.self, from: body) {
+  case .message(let method?, _): method
+  case .batch: "batch"
+  default: "unknown"
+  }
+}
+// The JSON-RPC envelope fields the server logs; params and results stay undecoded.
+private enum RPCEnvelope: Decodable {
+  case message(method: String?, hasError: Bool)
+  case batch
+  enum CodingKeys: String, CodingKey { case method, error }
+  init(from decoder: Decoder) throws {
+    guard let c = try? decoder.container(keyedBy: CodingKeys.self) else {
+      _ = try decoder.unkeyedContainer()
+      self = .batch
+      return
+    }
+    self = .message(
+      method: try? c.decode(String.self, forKey: .method), hasError: c.contains(.error))
+  }
+}
+
+// Records the tool outcome so the logger need not reparse large result bodies.
+private final class ToolOutcome: @unchecked Sendable {
+  var ran = false
+  var failed = false
+}
+@Sendable func handleMCP(
+  method: HTTPMethod, headers: [String: String], body: Data,
+  access: Capabilities.Access
+) async throws -> ServiceResponse {
+  let outcome = ToolOutcome()
+  // Each HTTP request has isolated SDK protocol state, permitting independent clients.
+  // The HTTP listener enforces Origin policy for all endpoints.
+  let transport = StatelessHTTPServerTransport(
+    validationPipeline: StandardValidationPipeline(validators: [
+      AcceptHeaderValidator(mode: .jsonOnly),
+      ContentTypeValidator(),
+      ProtocolVersionValidator(),
+    ]))
+  let server = Server(
+    name: "apple-calendar-server", version: "0.0.0",
+    capabilities: .init(tools: .init(listChanged: false)))
+  await server.withMethodHandler(ListTools.self) { params in
+    guard params.cursor == nil else { throw MCPError.invalidParams("Tool catalog has no cursor") }
+    outcome.ran = true
+    return .init(tools: tools)
+  }
+  await server.withMethodHandler(CallTool.self) { params in
+    guard let tool = ToolName(rawValue: params.name) else {
+      throw MCPError.invalidParams("Unknown tool")
+    }
+    outcome.ran = true
+    guard access == .write || (access == .read && readOnlyTools.contains(params.name)) else {
+      outcome.failed = true
+      return .init(
+        content: [
+          .text(text: "Forbidden: MCP write access required", annotations: nil, _meta: nil)
+        ], isError: true)
+    }
+    do { return try await callTool(tool, params) } catch {
+      outcome.failed = true
+      return .init(
+        content: [.text(text: errorText(error), annotations: nil, _meta: nil)], isError: true)
+    }
+  }
+  do { try await server.start(transport: transport) } catch {
+    await server.stop()
+    throw error
+  }
+  let response = await transport.handleRequest(
+    .init(method: method.rawValue, headers: headers, body: body, path: Route.mcp.rawValue))
+  await server.stop()
+  let responseBody = response.bodyData ?? Data()
+  var failure: Failure? = outcome.failed ? .mcpTool : nil
+  // Protocol replies (no tool or catalog handler ran) report errors in the JSON-RPC body.
+  if !outcome.ran,
+    case .message(_, hasError: true)? = try? JSONDecoder().decode(
+      RPCEnvelope.self, from: responseBody)
+  {
+    failure = .mcpProtocol
+  }
+  var headers = HTTPHeaders(response.headers.map { ($0.key, $0.value) })
+  if !headers.contains(name: "Content-Type") {
+    headers.add(name: "Content-Type", value: "application/json")
+  }
+  return ServiceResponse(
+    status: .init(statusCode: response.statusCode), headers: headers, body: responseBody,
+    failure: failure,
+    logMetadata: method == .POST ? ["rpc": jsonRPCMethod(body)] : [:])
+}

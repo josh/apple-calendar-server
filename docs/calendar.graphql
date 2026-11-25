@@ -25,6 +25,31 @@ type Query {
   calendar(id: ID!): Calendar
 
   """
+  Events overlapping a window of time, with repeating events expanded into their occurrences. The page echoes the resolved window.
+  """
+  events(
+    limit: Int! = 50
+    offset: Int! = 0
+
+    """
+    Inclusive start of the window events must overlap: an RFC 3339 timestamp, or YYYY-MM-DD for that day's midnight in the host zone. Defaults to now.
+    """
+    from: String
+
+    """
+    Exclusive end of the window, in the same forms. Defaults to 30 days after from. The window may span at most 1096 days.
+    """
+    before: String
+    filter: EventFilter
+    orderBy: EventOrder
+  ): EventPage
+
+  """
+  Find an event or occurrence by its id; null when missing. A series id returns its first occurrence.
+  """
+  event(id: ID!): Event
+
+  """
   The account of the default calendar, or null if none is available.
   """
   defaultAccount: Account
@@ -47,6 +72,26 @@ type Account {
   name: String
 
   """
+  Events overlapping the window in this account; filters apply within it.
+  """
+  events(
+    limit: Int! = 50
+    offset: Int! = 0
+
+    """
+    Inclusive start of the window events must overlap: an RFC 3339 timestamp, or YYYY-MM-DD for that day's midnight in the host zone. Defaults to now.
+    """
+    from: String
+
+    """
+    Exclusive end of the window, in the same forms. Defaults to 30 days after from. The window may span at most 1096 days.
+    """
+    before: String
+    filter: EventFilter
+    orderBy: EventOrder
+  ): EventPage
+
+  """
   Calendars in this account; filters apply within it.
   """
   calendars(
@@ -57,33 +102,196 @@ type Account {
   ): CalendarPage
 }
 
-input CalendarFilter {
+input EventFilter {
   """
-  Case-insensitive substring of the calendar name.
+  Case-insensitive substring of the event title, notes, or location.
   """
   query: String
 
   """
-  Match calendars in any of these accounts, intersected with the parent scope; [] matches nothing.
+  Case-insensitive substring of the event title.
+  """
+  titleContains: String
+
+  """
+  Match events in any of these calendars; [] matches nothing.
+  """
+  calendarIds: [ID!]
+
+  """
+  Match events in any of these accounts; [] matches nothing.
   """
   accountIds: [ID!]
 
   """
-  Match whether events in the calendar can be modified.
+  Match all-day or timed events.
   """
-  allowsContentModifications: Boolean
+  allDay: Boolean
 
   """
-  Match subscribed or unsubscribed calendars.
+  Match occurrences that carry recurrence rules, or events that do not.
   """
-  subscribed: Boolean
+  recurring: Boolean
+
+  """
+  Match occurrences edited apart from their series, or events that are not.
+  """
+  detached: Boolean
+
+  """
+  Match events with or without attendees.
+  """
+  hasAttendees: Boolean
+
+  """
+  Match events with or without alarms.
+  """
+  hasAlarms: Boolean
+
+  """
+  Match any of these availability values; [] matches nothing.
+  """
+  availabilities: [EventAvailability!]
+
+  """
+  Match any of these event statuses; [] matches nothing.
+  """
+  statuses: [EventStatus!]
+
+  """
+  Match events where the current user is an attendee with any of these participation statuses; [] matches nothing.
+  """
+  myStatuses: [ParticipantStatus!]
 }
 
-input CalendarOrder {
+enum EventAvailability {
   """
-  Direction of name ordering. Ties use identifier order; without orderBy, calendars use identifier order.
+  The calendar does not store availability.
+  """
+  NOT_SUPPORTED
+
+  """
+  Shown as busy.
+  """
+  BUSY
+
+  """
+  Shown as free.
+  """
+  FREE
+
+  """
+  Shown as tentative.
+  """
+  TENTATIVE
+
+  """
+  Shown as out of office.
+  """
+  UNAVAILABLE
+}
+
+enum EventStatus {
+  """
+  No status.
+  """
+  NONE
+
+  """
+  Confirmed.
+  """
+  CONFIRMED
+
+  """
+  Tentative.
+  """
+  TENTATIVE
+
+  """
+  Canceled by its organizer.
+  """
+  CANCELED
+}
+
+enum ParticipantStatus {
+  """
+  No status reported.
+  """
+  UNKNOWN
+
+  """
+  Invited and yet to answer.
+  """
+  PENDING
+
+  """
+  Accepted.
+  """
+  ACCEPTED
+
+  """
+  Declined.
+  """
+  DECLINED
+
+  """
+  Tentatively accepted.
+  """
+  TENTATIVE
+
+  """
+  Delegated to someone else.
+  """
+  DELEGATED
+
+  """
+  Marked completed.
+  """
+  COMPLETED
+
+  """
+  Marked in process.
+  """
+  IN_PROCESS
+}
+
+input EventOrder {
+  """
+  Property to sort by.
+  """
+  field: EventSortField!
+
+  """
+  Direction of ordering. Nulls sort last either way and ties use start, then identifier; without orderBy, events sort by start.
   """
   direction: SortDirection = ASC
+}
+
+enum EventSortField {
+  """
+  Start, then end.
+  """
+  START_DATE
+
+  """
+  End, then start.
+  """
+  END_DATE
+
+  """
+  Event title.
+  """
+  TITLE
+
+  """
+  Creation timestamp.
+  """
+  CREATION_DATE
+
+  """
+  Last modification timestamp.
+  """
+  MODIFICATION_DATE
 }
 
 enum SortDirection {
@@ -98,14 +306,14 @@ enum SortDirection {
   DESC
 }
 
-type CalendarPage {
+type EventPage {
   """
-  Calendars in this page.
+  Events in this page.
   """
-  items: [Calendar!]!
+  items: [Event!]!
 
   """
-  Number of matching calendars before pagination.
+  Number of matching events in the window before pagination.
   """
   totalCount: Int!
 
@@ -113,6 +321,612 @@ type CalendarPage {
   Position and availability of neighboring pages.
   """
   pageInfo: PageInfo!
+
+  """
+  The resolved inclusive start of the window.
+  """
+  from: DateTime!
+
+  """
+  The resolved exclusive end of the window. Send from and before back unchanged for later pages, because the defaults move with the clock.
+  """
+  before: DateTime!
+}
+
+"""
+One event, or one occurrence of a repeating event.
+"""
+type Event {
+  """
+  Identifier of this event or occurrence. An occurrence of a repeating event is its series identifier, a slash, and its current start. Treat the value as opaque; it changes when an occurrence moves and can change after a write or a sync.
+  """
+  id: ID!
+
+  """
+  Identifier shared by every occurrence of a repeating event; null for an event that does not repeat. As an id it names the whole series.
+  """
+  seriesId: ID
+
+  """
+  The identifier EventKit stores for the event, for reference only.
+  """
+  eventIdentifier: String
+
+  """
+  Identifier assigned by the calendar server. Occurrences and copies can share it, so it does not identify one event.
+  """
+  externalId: String
+
+  """
+  Identifier of the owning calendar.
+  """
+  calendarId: ID!
+
+  """
+  The title of the event.
+  """
+  title: String
+
+  """
+  The notes attached to the event.
+  """
+  notes: String
+
+  """
+  The location of the event as text.
+  """
+  location: String
+
+  """
+  The location with coordinates, when the event stores one. Its title also appears as location.
+  """
+  structuredLocation: StructuredLocation
+
+  """
+  The URL attached to the event.
+  """
+  url: URL
+
+  """
+  Whether the event covers whole days rather than a time span.
+  """
+  allDay: Boolean!
+
+  """
+  When a timed event starts; null for an all-day event.
+  """
+  startDate: DateTime
+
+  """
+  When a timed event ends; null for an all-day event.
+  """
+  endDate: DateTime
+
+  """
+  The first day of an all-day event, in the host zone; null for a timed event.
+  """
+  allDayStartDate: LocalDate
+
+  """
+  The last day of an all-day event, inclusive; a one-day event has the same start and end. Null for a timed event.
+  """
+  allDayEndDate: LocalDate
+
+  """
+  IANA time zone the event is anchored to; null for a floating event, including every all-day event.
+  """
+  timeZone: String
+
+  """
+  The start EventKit reports for this occurrence within its series; null for an event that does not repeat. It is not a stable key: it has been observed to follow a detached occurrence that moves.
+  """
+  occurrenceDate: DateTime
+
+  """
+  Whether this occurrence was edited apart from its repeating series.
+  """
+  detached: Boolean!
+
+  """
+  Whether the event carries recurrence rules.
+  """
+  recurring: Boolean!
+
+  """
+  How the event shows on a free/busy schedule.
+  """
+  availability: EventAvailability!
+
+  """
+  The event's status as the calendar server reports it. EventKit cannot change it.
+  """
+  status: EventStatus!
+
+  """
+  Who organized the event; null when it has no organizer.
+  """
+  organizer: Participant
+
+  """
+  People, rooms, and resources invited to the event. EventKit cannot add, remove, or answer for attendees.
+  """
+  attendees: [Participant!]!
+
+  """
+  The current user's own participation status; null when they are not an attendee.
+  """
+  myStatus: ParticipantStatus
+
+  """
+  Contacts identifier of the person a Birthdays-calendar event is for.
+  """
+  birthdayContactIdentifier: String
+
+  """
+  When the event was created.
+  """
+  creationDate: DateTime
+
+  """
+  When the event was last modified.
+  """
+  modificationDate: DateTime
+
+  """
+  Alarms exactly as stored.
+  """
+  rawAlarms: [RawAlarm!]!
+
+  """
+  Configured alerts. An empty list means no alerts; a trigger this projection cannot represent, such as a location trigger, fails the field, and rawAlarms holds the stored values.
+  """
+  alarms: [EventAlarm!]
+
+  """
+  Recurrence rules exactly as stored.
+  """
+  recurrenceRules: [RecurrenceRule!]!
+
+  """
+  A single repeating schedule; null when the event does not repeat. Multiple rules fail the field, and recurrenceRules holds the stored rules.
+  """
+  recurrence: EventRecurrence
+
+  """
+  The owning calendar.
+  """
+  calendar: Calendar
+}
+
+type StructuredLocation {
+  """
+  Display name of the location.
+  """
+  title: String
+
+  """
+  Latitude in degrees, when set.
+  """
+  latitude: Float
+
+  """
+  Longitude in degrees, when set.
+  """
+  longitude: Float
+
+  """
+  Radius in meters; zero means the system default.
+  """
+  radius: Float!
+}
+
+"""
+Absolute URL serialized as a string.
+"""
+scalar URL
+
+"""
+RFC 3339 timestamp with an explicit offset, serialized in UTC.
+"""
+scalar DateTime
+
+"""
+Calendar date in YYYY-MM-DD form, without a time or offset.
+"""
+scalar LocalDate
+
+"""
+An organizer or attendee, as the calendar server reports them. Read-only.
+"""
+type Participant {
+  """
+  Display name, when known.
+  """
+  name: String
+
+  """
+  The participant's address, usually a mailto: URL.
+  """
+  url: String
+
+  """
+  Email address taken from a mailto: URL, when the address is one.
+  """
+  email: String
+
+  """
+  Whether the participant accepted, declined, or has yet to answer.
+  """
+  status: ParticipantStatus!
+
+  """
+  The participant's role in the event.
+  """
+  role: ParticipantRole!
+
+  """
+  Whether the participant is a person, room, resource, or group.
+  """
+  type: ParticipantType!
+
+  """
+  Whether this participant is the user of this Mac.
+  """
+  currentUser: Boolean!
+}
+
+enum ParticipantRole {
+  """
+  No role reported.
+  """
+  UNKNOWN
+
+  """
+  Attendance is required.
+  """
+  REQUIRED
+
+  """
+  Attendance is optional.
+  """
+  OPTIONAL
+
+  """
+  Chairs the event.
+  """
+  CHAIR
+
+  """
+  Informed but not attending.
+  """
+  NON_PARTICIPANT
+}
+
+enum ParticipantType {
+  """
+  No type reported.
+  """
+  UNKNOWN
+
+  """
+  A person.
+  """
+  PERSON
+
+  """
+  A room.
+  """
+  ROOM
+
+  """
+  A resource such as equipment.
+  """
+  RESOURCE
+
+  """
+  A group of people.
+  """
+  GROUP
+}
+
+"""
+An alarm exactly as stored.
+"""
+type RawAlarm {
+  """
+  Stored alarm action: display, audio, email, procedure, or unknown.
+  """
+  action: String!
+
+  """
+  Stored sound name, when set.
+  """
+  soundName: String
+
+  """
+  Stored email alarm recipient, when set.
+  """
+  emailAddress: String
+
+  """
+  Absolute trigger time, when set.
+  """
+  absoluteDate: DateTime
+
+  """
+  Seconds from the start date. Zero alone does not distinguish absolute and relative triggers.
+  """
+  relativeOffset: Float!
+
+  """
+  none, enter, leave, or unknown.
+  """
+  proximity: String!
+
+  """
+  The location of a geofence trigger, when set.
+  """
+  structuredLocation: StructuredLocation
+}
+
+union EventAlarm = AbsoluteAlarm | RelativeAlarm
+
+type AbsoluteAlarm {
+  """
+  Stored alarm action: display, audio, email, procedure, or unknown.
+  """
+  action: String!
+
+  """
+  Stored sound name, when set.
+  """
+  soundName: String
+
+  """
+  Stored email alarm recipient, when set.
+  """
+  emailAddress: String
+
+  """
+  The date and time at which the alert triggers.
+  """
+  at: DateTime!
+}
+
+type RelativeAlarm {
+  """
+  Stored alarm action: display, audio, email, procedure, or unknown.
+  """
+  action: String!
+
+  """
+  Stored sound name, when set.
+  """
+  soundName: String
+
+  """
+  Stored email alarm recipient, when set.
+  """
+  emailAddress: String
+
+  """
+  Seconds from the start date: negative before, zero at, positive after.
+  """
+  offsetSeconds: Float!
+}
+
+"""
+A recurrence rule exactly as stored.
+"""
+type RecurrenceRule {
+  """
+  daily, weekly, monthly, yearly, or unknown.
+  """
+  frequency: String!
+
+  """
+  Calendar the rule is evaluated in.
+  """
+  calendarIdentifier: String!
+
+  """
+  Frequency units between occurrences.
+  """
+  interval: Int!
+
+  """
+  First day of the week, Sunday = 1; zero is unset.
+  """
+  firstDayOfTheWeek: Int!
+
+  """
+  Weekday constraints; empty when unconstrained.
+  """
+  daysOfTheWeek: [RecurrenceDay!]!
+
+  """
+  When repetition stops; null for no end.
+  """
+  end: RecurrenceEnd
+
+  """
+  Selector values; empty when unconstrained.
+  """
+  daysOfTheMonth: [Int!]!
+
+  """
+  Selector values; empty when unconstrained.
+  """
+  daysOfTheYear: [Int!]!
+
+  """
+  Selector values; empty when unconstrained.
+  """
+  weeksOfTheYear: [Int!]!
+
+  """
+  Selector values; empty when unconstrained.
+  """
+  monthsOfTheYear: [Int!]!
+
+  """
+  Selector values; empty when unconstrained.
+  """
+  setPositions: [Int!]!
+}
+
+type RecurrenceDay {
+  """
+  Weekday, Sunday = 1.
+  """
+  dayOfTheWeek: Int!
+
+  """
+  Signed ordinal; zero means every occurrence.
+  """
+  weekNumber: Int!
+}
+
+type RecurrenceEnd {
+  """
+  End timestamp, when set.
+  """
+  endDate: DateTime
+
+  """
+  Number of occurrences; zero when unset.
+  """
+  occurrenceCount: Int!
+}
+
+type EventRecurrence {
+  """
+  The unit of repetition.
+  """
+  frequency: RecurrenceFrequency!
+
+  """
+  Positive number of frequency units between occurrences.
+  """
+  interval: Int!
+
+  """
+  Weekday constraints. Null means unconstrained. Not allowed for daily rules.
+  """
+  daysOfWeek: [EventRecurrenceDay!]
+
+  """
+  When repetition stops; null means no specified end.
+  """
+  end: EventRecurrenceEnd
+
+  """
+  Days 1..31 or -31..-1 counting backward from the end of the month. Monthly rules only.
+  """
+  daysOfMonth: [Int!]
+
+  """
+  Months 1..12. Yearly rules only.
+  """
+  monthsOfYear: [Int!]
+
+  """
+  Week numbers 1..53 or -53..-1 counting backward from year end. Yearly rules only.
+  """
+  weeksOfYear: [Int!]
+
+  """
+  Year days 1..366 or -366..-1 counting backward from year end. Yearly rules only.
+  """
+  daysOfYear: [Int!]
+
+  """
+  Select positions 1..366 or -366..-1 from occurrences matching the other constraints in each period. Requires another selector.
+  """
+  setPositions: [Int!]
+}
+
+enum RecurrenceFrequency {
+  """
+  Repeat in day intervals.
+  """
+  DAILY
+
+  """
+  Repeat in week intervals.
+  """
+  WEEKLY
+
+  """
+  Repeat in month intervals.
+  """
+  MONTHLY
+
+  """
+  Repeat in year intervals.
+  """
+  YEARLY
+}
+
+type EventRecurrenceDay {
+  """
+  The weekday to match.
+  """
+  day: Weekday!
+
+  """
+  Occurrence of this weekday: 1 is first, -1 last; omit for every occurrence. Valid range -53..53 excluding zero; non-null ordinals require monthly or yearly frequency.
+  """
+  ordinal: Int
+}
+
+enum Weekday {
+  """
+  Sunday.
+  """
+  SUNDAY
+
+  """
+  Monday.
+  """
+  MONDAY
+
+  """
+  Tuesday.
+  """
+  TUESDAY
+
+  """
+  Wednesday.
+  """
+  WEDNESDAY
+
+  """
+  Thursday.
+  """
+  THURSDAY
+
+  """
+  Friday.
+  """
+  FRIDAY
+
+  """
+  Saturday.
+  """
+  SATURDAY
+}
+
+type EventRecurrenceEnd {
+  """
+  Inclusive end timestamp; mutually exclusive with count.
+  """
+  until: DateTime
+
+  """
+  Positive number of occurrences; mutually exclusive with until.
+  """
+  count: Int
 }
 
 type Calendar {
@@ -165,6 +979,26 @@ type Calendar {
   The account that owns the calendar.
   """
   account: Account
+
+  """
+  Events overlapping the window in this calendar; filters apply within it.
+  """
+  events(
+    limit: Int! = 50
+    offset: Int! = 0
+
+    """
+    Inclusive start of the window events must overlap: an RFC 3339 timestamp, or YYYY-MM-DD for that day's midnight in the host zone. Defaults to now.
+    """
+    from: String
+
+    """
+    Exclusive end of the window, in the same forms. Defaults to 30 days after from. The window may span at most 1096 days.
+    """
+    before: String
+    filter: EventFilter
+    orderBy: EventOrder
+  ): EventPage
 }
 
 enum CalendarType {
@@ -199,33 +1033,6 @@ enum CalendarType {
   UNKNOWN
 }
 
-enum EventAvailability {
-  """
-  The calendar does not store availability.
-  """
-  NOT_SUPPORTED
-
-  """
-  Shown as busy.
-  """
-  BUSY
-
-  """
-  Shown as free.
-  """
-  FREE
-
-  """
-  Shown as tentative.
-  """
-  TENTATIVE
-
-  """
-  Shown as out of office.
-  """
-  UNAVAILABLE
-}
-
 type PageInfo {
   """
   Requested zero-based offset.
@@ -246,4 +1053,50 @@ type PageInfo {
   Whether matching results exist before the requested offset.
   """
   hasPreviousPage: Boolean!
+}
+
+input CalendarFilter {
+  """
+  Case-insensitive substring of the calendar name.
+  """
+  query: String
+
+  """
+  Match calendars in any of these accounts, intersected with the parent scope; [] matches nothing.
+  """
+  accountIds: [ID!]
+
+  """
+  Match whether events in the calendar can be modified.
+  """
+  allowsContentModifications: Boolean
+
+  """
+  Match subscribed or unsubscribed calendars.
+  """
+  subscribed: Boolean
+}
+
+input CalendarOrder {
+  """
+  Direction of name ordering. Ties use identifier order; without orderBy, calendars use identifier order.
+  """
+  direction: SortDirection = ASC
+}
+
+type CalendarPage {
+  """
+  Calendars in this page.
+  """
+  items: [Calendar!]!
+
+  """
+  Number of matching calendars before pagination.
+  """
+  totalCount: Int!
+
+  """
+  Position and availability of neighboring pages.
+  """
+  pageInfo: PageInfo!
 }

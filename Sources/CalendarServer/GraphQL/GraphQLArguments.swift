@@ -18,6 +18,26 @@ struct GraphQLCalendarSearch: Decodable {
   }
 }
 
+struct GraphQLEventSearch: Decodable {
+  let from, before: String?
+  let filter: Filter?
+  let orderBy: Order?
+  let limit, offset: Int
+
+  struct Filter: Decodable, Sendable {
+    let query, titleContains: String?
+    let calendarIds, accountIds: [String]?
+    let allDay, recurring, detached, hasAttendees, hasAlarms: Bool?
+    let availabilities: [EventAvailability]?
+    let statuses: [EventStatus]?
+    let myStatuses: [ParticipantStatus]?
+  }
+  struct Order: Decodable, Sendable {
+    let field: EventSortField
+    let direction: SortDirection?
+  }
+}
+
 struct GraphQLIDArguments: Decodable {
   let id: String
 }

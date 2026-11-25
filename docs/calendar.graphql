@@ -1160,3 +1160,56 @@ type CalendarPage {
   """
   pageInfo: PageInfo!
 }
+
+type Mutation {
+  """
+  Create an event calendar in an account. If reading it back fails, the error has code WRITE_APPLIED and names the saved ID; do not retry creation blindly.
+  """
+  createCalendar(input: CreateCalendarInput!): Calendar
+
+  """
+  Update a calendar's name or color. An error with code WRITE_APPLIED means the save succeeded before a later failure; refetch the saved ID before retrying.
+  """
+  updateCalendar(id: ID!, patch: CalendarPatch!): Calendar
+
+  """
+  Delete a calendar and every event in it. A calendar that still has events requires allowNonEmpty; the check covers 1970 through ten years ahead, so events outside that range are not detected. Deleting events you organize can notify their attendees. Concurrent external edits are not locked.
+  """
+  deleteCalendar(id: ID!, allowNonEmpty: Boolean! = false): DeleteResult
+}
+
+input CreateCalendarInput {
+  """
+  Name of the new calendar; must not be blank.
+  """
+  name: String!
+
+  """
+  Opaque sRGB color as #RRGGBB or #RRGGBBFF.
+  """
+  color: String
+
+  """
+  Account to create the calendar in.
+  """
+  accountId: ID!
+}
+
+input CalendarPatch {
+  """
+  New name; must not be blank.
+  """
+  name: String
+
+  """
+  Opaque sRGB color as #RRGGBB or #RRGGBBFF.
+  """
+  color: String
+}
+
+type DeleteResult {
+  """
+  Identifier of the deleted object.
+  """
+  deletedId: ID!
+}

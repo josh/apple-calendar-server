@@ -387,7 +387,57 @@ private func toolsCatalog() -> [Tool] {
   let annotations = Tool.Annotations(
     readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false)
   let noArguments = object([:])
+  let created = Tool.Annotations(
+    readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false)
+  let changed = Tool.Annotations(
+    readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false)
+  let calendarResult = schema(
+    CalendarOutput.CodingKeys.self,
+    [.calendar: describe(calendar, "The saved calendar.")], required: [.calendar])
+  let deleted = schema(
+    DeleteResult.CodingKeys.self,
+    [.deletedId: describe(string, FieldDocs.DeleteResult.deletedId)], required: [.deletedId])
+  let calendarPatch = schema(
+    CalendarInput.CodingKeys.self,
+    [
+      .name: describe(string, FieldDocs.CalendarPatch.name),
+      .color: describe(string, FieldDocs.CalendarPatch.color),
+    ])
   return [
+    Tool(
+      name: ToolName.calendarsCreate.rawValue,
+      description:
+        "Create an event calendar in an account. A WRITE_APPLIED error names a calendar that was saved before a later step failed; do not retry creation blindly.",
+      inputSchema: schema(
+        CalendarInput.CodingKeys.self,
+        [
+          .name: describe(string, FieldDocs.CreateCalendarInput.name),
+          .color: describe(string, FieldDocs.CreateCalendarInput.color),
+          .accountId: describe(string, FieldDocs.CreateCalendarInput.accountId),
+        ], required: [.name, .accountId]),
+      annotations: created, outputSchema: calendarResult),
+    Tool(
+      name: ToolName.calendarsUpdate.rawValue,
+      description:
+        "Update a calendar's name or color. Omit unchanged fields. A WRITE_APPLIED error means the save succeeded; refetch before retrying.",
+      inputSchema: schema(
+        PatchArguments<CalendarInput>.CodingKeys.self,
+        [
+          .id: describe(string, "Unique identifier of the calendar."),
+          .patch: describe(calendarPatch, "Fields to change; at least one."),
+        ], required: [.id, .patch]),
+      annotations: changed, outputSchema: calendarResult),
+    Tool(
+      name: ToolName.calendarsDelete.rawValue,
+      description: FieldDocs.DeleteCalendar.description,
+      inputSchema: schema(
+        CalendarDeleteArguments.CodingKeys.self,
+        [
+          .id: describe(string, "Unique identifier of the calendar."),
+          .allowNonEmpty: describe(
+            primitive(.boolean, ["default": false]), FieldDocs.DeleteCalendar.allowNonEmpty),
+        ], required: [.id]),
+      annotations: changed, outputSchema: deleted),
     Tool(
       name: ToolName.accountsList.rawValue,
       description: "Read every account that has an accessible event calendar.",
@@ -487,9 +537,12 @@ private func result<T: Encodable>(_ value: T) throws -> CallTool.Result {
 enum ToolName: String {
   case accountsGet = "accounts_get"
   case accountsList = "accounts_list"
+  case calendarsCreate = "calendars_create"
+  case calendarsDelete = "calendars_delete"
   case calendarsGet = "calendars_get"
   case calendarsList = "calendars_list"
   case calendarsSummary = "calendars_summary"
+  case calendarsUpdate = "calendars_update"
   case defaultsGet = "defaults_get"
   case eventsGet = "events_get"
   case eventsSearch = "events_search"
@@ -533,7 +586,25 @@ private func callTool(_ tool: ToolName, _ params: CallTool.Parameters) async thr
       items: pageItems, totalCount: items.count, nextCursor: end < items.count ? String(end) : nil)
   }
   func calendars() async throws -> CalendarData { try await onMainActor { try readCalendars() } }
+  // CalendarRecord holds plain values, so its response cannot fail to encode.
+  func savedCalendar(_ request: CalendarWrite) async throws -> CallTool.Result {
+    try result(CalendarOutput(calendar: try await writeCalendar(request)))
+  }
   switch tool {
+  case .calendarsCreate:
+    let input = try arguments(CalendarInput.self)
+    return try await savedCalendar(
+      .create(
+        accountID: input.accountId.required("accountId"),
+        changes: calendarChanges(input, creating: true)))
+  case .calendarsUpdate:
+    let update = try arguments(PatchArguments<CalendarInput>.self)
+    return try await savedCalendar(
+      .update(id: update.id, changes: calendarChanges(update.patch, creating: false)))
+  case .calendarsDelete:
+    let delete = try arguments(CalendarDeleteArguments.self)
+    return try await result(
+      deleteCalendar(id: delete.id, allowNonEmpty: delete.allowNonEmpty ?? false))
   case .accountsGet:
     let id = try arguments(IDArguments.self).id
     return try result(AccountOutput(account: await calendars().accounts.first { $0.id == id }))

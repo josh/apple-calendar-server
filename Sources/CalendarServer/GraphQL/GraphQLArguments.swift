@@ -45,3 +45,19 @@ struct GraphQLWindowArguments: Decodable {
 struct GraphQLIDArguments: Decodable {
   let id: String
 }
+
+// Mutation arguments.
+
+struct GraphQLCreateArguments<Input: Decodable>: Decodable {
+  let input: Input
+}
+
+struct GraphQLPatchArguments<Patch: Decodable>: Decodable {
+  let id: String
+  let patch: Patch
+}
+
+struct GraphQLCalendarDeleteArguments: Decodable {
+  let id: String
+  let allowNonEmpty: Bool
+}

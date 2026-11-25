@@ -737,6 +737,7 @@ func makeSchema() throws -> GraphQLSchema {
       return try await calendarData(context).calendars.first { $0.id == id }
     })
   event.fields = { eventFields }
+  let mutation = try makeMutationType(calendar: calendar)
   return try GraphQLSchema(
     query: GraphQLObjectType(
       name: "Query",
@@ -796,5 +797,5 @@ func makeSchema() throws -> GraphQLSchema {
           resolve: { _, _, context, _ in
             try await calendarData(context).defaultCalendar
           }),
-      ]))
+      ]), mutation: mutation)
 }

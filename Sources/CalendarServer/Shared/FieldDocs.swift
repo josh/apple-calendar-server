@@ -205,4 +205,21 @@ enum FieldDocs {
     static let withAttendees = "Events with attendees."
     static let withAlarms = "Events with alarms."
   }
+  enum CreateCalendarInput {
+    static let name = "Name of the new calendar; must not be blank."
+    static let color = "Opaque sRGB color as #RRGGBB or #RRGGBBFF."
+    static let accountId = "Account to create the calendar in."
+  }
+  enum CalendarPatch {
+    static let name = "New name; must not be blank."
+    static let color = "Opaque sRGB color as #RRGGBB or #RRGGBBFF."
+  }
+  enum DeleteResult {
+    static let deletedId = "Identifier of the deleted object."
+  }
+  enum DeleteCalendar {
+    static let description =
+      "Delete a calendar and every event in it. A calendar that still has events requires allowNonEmpty; the check covers 1970 through ten years ahead, so events outside that range are not detected. Deleting events you organize can notify their attendees. Concurrent external edits are not locked."
+    static let allowNonEmpty = "Delete the calendar even though it still has events."
+  }
 }

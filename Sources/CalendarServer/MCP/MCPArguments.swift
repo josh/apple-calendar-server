@@ -12,6 +12,30 @@ struct IDArguments: Decodable {
   }
 }
 
+struct PatchArguments<Patch: Decodable>: Decodable {
+  let id: String
+  let patch: Patch
+  enum CodingKeys: String, CodingKey, CaseIterable { case id, patch }
+  init(from decoder: Decoder) throws {
+    let c = try decoder.inputContainer(keyedBy: CodingKeys.self)
+    id = try c.decode(String.self, forKey: .id)
+    guard !id.isEmpty else { throw ServerError.invalidArgument("id required") }
+    patch = try c.decode(Patch.self, forKey: .patch)
+  }
+}
+
+struct CalendarDeleteArguments: Decodable {
+  let id: String
+  let allowNonEmpty: Bool?
+  enum CodingKeys: String, CodingKey, CaseIterable { case id, allowNonEmpty }
+  init(from decoder: Decoder) throws {
+    let c = try decoder.inputContainer(keyedBy: CodingKeys.self)
+    id = try c.decode(String.self, forKey: .id)
+    guard !id.isEmpty else { throw ServerError.invalidArgument("id required") }
+    allowNonEmpty = try c.decodeIfPresent(Bool.self, forKey: .allowNonEmpty)
+  }
+}
+
 struct CalendarSearchArguments: Decodable {
   let filter: Filter?
   let orderBy: Order?

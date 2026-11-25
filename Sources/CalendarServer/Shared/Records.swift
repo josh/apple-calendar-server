@@ -9,6 +9,7 @@ enum ErrorCode: String, Encodable, Sendable {
   case readOnly = "READ_ONLY"
   case unsupported = "UNSUPPORTED"
   case unsupportedOperation = "UNSUPPORTED_OPERATION"
+  case calendarNotEmpty = "CALENDAR_NOT_EMPTY"
   case resultTooLarge = "RESULT_TOO_LARGE"
   case writeFailed = "WRITE_FAILED"
   case writeApplied = "WRITE_APPLIED"
@@ -27,6 +28,9 @@ struct ServerError: Error, CustomStringConvertible, Sendable {
   static func unsupported(_ message: String) -> Self { .init(code: .unsupported, message: message) }
   static func unsupportedOperation(_ message: String) -> Self {
     .init(code: .unsupportedOperation, message: message)
+  }
+  static func calendarNotEmpty(_ message: String) -> Self {
+    .init(code: .calendarNotEmpty, message: message)
   }
   static func resultTooLarge(_ message: String) -> Self {
     .init(code: .resultTooLarge, message: message)

@@ -646,6 +646,30 @@ func makeSchema() throws -> GraphQLSchema {
         GraphQLNonNull(dateTime), { (page: GraphQLEventPage) in timestamp(page.window.before) },
         description: FieldDocs.EventWindow.resolvedBefore),
     ])
+  func count(_ value: KeyPath<CalendarSummary, Int> & Sendable, _ description: String)
+    -> GraphQLField
+  {
+    field(
+      GraphQLNonNull(GraphQLInt), { (summary: CalendarSummary) in summary[keyPath: value] },
+      description: description)
+  }
+  let summary = try GraphQLObjectType(
+    name: "CalendarSummary",
+    description: "Counts of the events in one calendar that overlap a window; they overlap.",
+    fields: [
+      "from": field(
+        GraphQLNonNull(dateTime), \CalendarSummary.from,
+        description: FieldDocs.EventWindow.resolvedFrom),
+      "before": field(
+        GraphQLNonNull(dateTime), \CalendarSummary.before,
+        description: FieldDocs.EventWindow.resolvedBefore),
+      "total": count(\.total, FieldDocs.CalendarSummary.total),
+      "allDay": count(\.allDay, FieldDocs.CalendarSummary.allDay),
+      "timed": count(\.timed, FieldDocs.CalendarSummary.timed),
+      "recurring": count(\.recurring, FieldDocs.CalendarSummary.recurring),
+      "withAttendees": count(\.withAttendees, FieldDocs.CalendarSummary.withAttendees),
+      "withAlarms": count(\.withAlarms, FieldDocs.CalendarSummary.withAlarms),
+    ])
   var eventArgs = pageArgs
   eventArgs["from"] = GraphQLArgument(type: GraphQLString, description: FieldDocs.EventWindow.from)
   eventArgs["before"] = GraphQLArgument(
@@ -686,6 +710,23 @@ func makeSchema() throws -> GraphQLSchema {
     resolve: { source, args, context, _ in
       let id = try record(source, as: CalendarRecord.self).id
       return try await eventSearchPage(args: args, context: context, scope: [id])
+    })
+  calendarFields["summary"] = GraphQLField(
+    type: summary,
+    description: "Event counts for this calendar over a window, regardless of pagination.",
+    args: [
+      "from": GraphQLArgument(type: GraphQLString, description: FieldDocs.EventWindow.from),
+      "before": GraphQLArgument(type: GraphQLString, description: FieldDocs.EventWindow.before),
+    ],
+    resolve: { source, args, context, _ in
+      let id = try record(source, as: CalendarRecord.self).id
+      let context = try requestContext(context)
+      let arguments = try decodeInput(GraphQLWindowArguments.self, from: args)
+      var search = Search()
+      search.from = arguments.from
+      search.before = arguments.before
+      let data = try await context.eventsData(search.window(now: context.now))
+      return summarize(search.events(data, scope: [id]), window: data.window, calendarId: id)
     })
   calendar.fields = { calendarFields }
   var eventFields = try event.fields()

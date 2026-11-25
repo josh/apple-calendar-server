@@ -8,6 +8,26 @@ private struct PageOutput<Item: Encodable>: Encodable {
   let nextCursor: String?
   enum CodingKeys: String, CodingKey { case items, totalCount, nextCursor }
 }
+// A page of events with the window the search resolved, which later pages must repeat.
+private struct EventPageOutput: Encodable {
+  let items: [MCPEvent]
+  let totalCount: Int
+  let nextCursor: String?
+  let from, before: String
+  enum CodingKeys: String, CodingKey { case items, totalCount, nextCursor, from, before }
+}
+private struct EventOutput: Encodable {
+  let event: MCPEvent?
+  enum CodingKeys: CodingKey { case event }
+  func encode(to encoder: Encoder) throws {
+    var c = encoder.container(keyedBy: CodingKeys.self)
+    try c.encode(event, forKey: .event)
+  }
+}
+private struct SummaryOutput: Encodable {
+  let items: [CalendarSummary]
+  enum CodingKeys: String, CodingKey { case items }
+}
 private struct AccountOutput: Encodable {
   let account: AccountRecord?
   enum CodingKeys: CodingKey { case account }
@@ -152,6 +172,218 @@ private func toolsCatalog() -> [Tool] {
         [.direction: describe(direction, FieldDocs.CalendarOrder.direction)]),
       .limit: limit, .cursor: cursor,
     ])
+  let number = primitive(.number)
+  let integers = array(integer)
+  let from = describe(string, FieldDocs.EventWindow.from)
+  let before = describe(string, FieldDocs.EventWindow.before)
+  let structuredLocation = schema(
+    StructuredLocation.CodingKeys.self,
+    [
+      .title: describe(string, FieldDocs.StructuredLocation.title),
+      .latitude: describe(number, FieldDocs.StructuredLocation.latitude),
+      .longitude: describe(number, FieldDocs.StructuredLocation.longitude),
+      .radius: describe(number, FieldDocs.StructuredLocation.radius),
+    ], required: [.radius])
+  let participantStatus = enumeration(ParticipantStatus.allCases.map(\.rawValue))
+  let participant = schema(
+    ParticipantRecord.CodingKeys.self,
+    [
+      .name: describe(string, FieldDocs.Participant.name),
+      .url: describe(string, FieldDocs.Participant.url),
+      .email: describe(string, FieldDocs.Participant.email),
+      .status: describe(participantStatus, FieldDocs.Participant.status),
+      .role: describe(
+        enumeration(ParticipantRole.allCases.map(\.rawValue)), FieldDocs.Participant.role),
+      .type: describe(
+        enumeration(ParticipantType.allCases.map(\.rawValue)), FieldDocs.Participant.type),
+      .currentUser: describe(boolean, FieldDocs.Participant.currentUser),
+    ], required: [.status, .role, .type, .currentUser])
+  let rawAlarm = schema(
+    AlarmRecord.CodingKeys.self,
+    [
+      .action: describe(string, FieldDocs.RawAlarm.action),
+      .soundName: describe(string, FieldDocs.RawAlarm.soundName),
+      .emailAddress: describe(string, FieldDocs.RawAlarm.emailAddress),
+      .absoluteDate: describe(string, FieldDocs.RawAlarm.absoluteDate),
+      .relativeOffset: describe(number, FieldDocs.RawAlarm.relativeOffset),
+      .proximity: describe(
+        enumeration(AlarmProximity.allCases.map(\.rawValue)), FieldDocs.RawAlarm.proximity),
+      .structuredLocation: describe(structuredLocation, FieldDocs.RawAlarm.structuredLocation),
+    ], required: [.action, .relativeOffset, .proximity])
+  let alarm = schema(
+    AlarmView.CodingKeys.self,
+    [
+      .kind: describe(
+        enumeration([AlarmKind.absolute.rawValue, AlarmKind.relative.rawValue]),
+        "AbsoluteAlarm carries at; RelativeAlarm carries offsetSeconds."),
+      .action: describe(string, FieldDocs.RawAlarm.action),
+      .soundName: describe(string, FieldDocs.RawAlarm.soundName),
+      .emailAddress: describe(string, FieldDocs.RawAlarm.emailAddress),
+      .at: describe(string, FieldDocs.AbsoluteAlarm.at),
+      .offsetSeconds: describe(number, FieldDocs.RelativeAlarm.offsetSeconds),
+    ], required: [.kind, .action])
+  let rawRule = schema(
+    RecurrenceRecord.CodingKeys.self,
+    [
+      .frequency: describe(
+        enumeration(RecurrenceFrequency.allCases.map(\.rawValue)),
+        FieldDocs.RecurrenceRule.frequency),
+      .calendarIdentifier: describe(string, FieldDocs.RecurrenceRule.calendarIdentifier),
+      .interval: describe(integer, FieldDocs.RecurrenceRule.interval),
+      .firstDayOfTheWeek: describe(integer, FieldDocs.RecurrenceRule.firstDayOfTheWeek),
+      .daysOfTheWeek: describe(
+        array(
+          schema(
+            RecurrenceDay.CodingKeys.self,
+            [
+              .dayOfTheWeek: describe(integer, FieldDocs.RecurrenceDay.dayOfTheWeek),
+              .weekNumber: describe(integer, FieldDocs.RecurrenceDay.weekNumber),
+            ], required: [.dayOfTheWeek, .weekNumber])), FieldDocs.RecurrenceRule.daysOfTheWeek),
+      .daysOfTheMonth: describe(integers, FieldDocs.RecurrenceRule.daysOfTheMonth),
+      .daysOfTheYear: describe(integers, FieldDocs.RecurrenceRule.daysOfTheYear),
+      .weeksOfTheYear: describe(integers, FieldDocs.RecurrenceRule.weeksOfTheYear),
+      .monthsOfTheYear: describe(integers, FieldDocs.RecurrenceRule.monthsOfTheYear),
+      .setPositions: describe(integers, FieldDocs.RecurrenceRule.setPositions),
+      .end: describe(
+        schema(
+          RecurrenceEnd.CodingKeys.self,
+          [
+            .endDate: describe(string, FieldDocs.RecurrenceEnd.endDate),
+            .occurrenceCount: describe(integer, FieldDocs.RecurrenceEnd.occurrenceCount),
+          ], required: [.occurrenceCount]), FieldDocs.RecurrenceRule.end),
+    ],
+    required: [
+      .frequency, .calendarIdentifier, .interval, .firstDayOfTheWeek, .daysOfTheWeek,
+      .daysOfTheMonth, .daysOfTheYear, .weeksOfTheYear, .monthsOfTheYear, .setPositions,
+    ])
+  let weekday = enumeration(Weekday.allCases.map(\.rawValue))
+  let frequency = enumeration(ScheduleFrequency.allCases.map(\.rawValue))
+  let rule = schema(
+    RecurrenceView.CodingKeys.self,
+    [
+      .frequency: describe(frequency, FieldDocs.Schedule.frequency),
+      .interval: describe(integer, FieldDocs.Schedule.interval),
+      .daysOfWeek: describe(
+        array(
+          schema(
+            RecurrenceView.Day.CodingKeys.self,
+            [
+              .day: describe(weekday, FieldDocs.ScheduleDay.day),
+              .ordinal: describe(integer, FieldDocs.ScheduleDay.ordinal),
+            ], required: [.day])), FieldDocs.Schedule.daysOfWeek),
+      .daysOfMonth: describe(integers, FieldDocs.Schedule.daysOfMonth),
+      .monthsOfYear: describe(integers, FieldDocs.Schedule.monthsOfYear),
+      .weeksOfYear: describe(integers, FieldDocs.Schedule.weeksOfYear),
+      .daysOfYear: describe(integers, FieldDocs.Schedule.daysOfYear),
+      .setPositions: describe(integers, FieldDocs.Schedule.setPositions),
+      .end: describe(
+        schema(
+          RecurrenceView.End.CodingKeys.self,
+          [
+            .until: describe(string, FieldDocs.ScheduleEnd.until),
+            .count: describe(integer, FieldDocs.ScheduleEnd.count),
+          ]), FieldDocs.Schedule.end),
+    ], required: [.frequency, .interval])
+  let availability = enumeration(EventAvailability.allCases.map(\.rawValue))
+  let eventStatus = enumeration(EventStatus.allCases.map(\.rawValue))
+  let event = schema(
+    MCPEvent.CodingKeys.self,
+    [
+      .id: describe(string, FieldDocs.Event.id),
+      .seriesId: describe(string, FieldDocs.Event.seriesId),
+      .eventIdentifier: describe(string, FieldDocs.Event.eventIdentifier),
+      .externalId: describe(string, FieldDocs.Event.externalId),
+      .calendarId: describe(string, FieldDocs.Event.calendarId),
+      .title: describe(string, FieldDocs.Event.title),
+      .notes: describe(string, FieldDocs.Event.notes),
+      .location: describe(string, FieldDocs.Event.location),
+      .structuredLocation: describe(structuredLocation, FieldDocs.Event.structuredLocation),
+      .url: describe(string, FieldDocs.Event.url),
+      .allDay: describe(boolean, FieldDocs.Event.allDay),
+      .startDate: describe(nullable(string), FieldDocs.Event.startDate),
+      .endDate: describe(nullable(string), FieldDocs.Event.endDate),
+      .allDayStartDate: describe(nullable(string), FieldDocs.Event.allDayStartDate),
+      .allDayEndDate: describe(nullable(string), FieldDocs.Event.allDayEndDate),
+      .timeZone: describe(nullable(string), FieldDocs.Event.timeZone),
+      .occurrenceDate: describe(string, FieldDocs.Event.occurrenceDate),
+      .detached: describe(boolean, FieldDocs.Event.detached),
+      .recurring: describe(boolean, FieldDocs.Event.recurring),
+      .availability: describe(availability, FieldDocs.Event.availability),
+      .status: describe(eventStatus, FieldDocs.Event.status),
+      .organizer: describe(participant, FieldDocs.Event.organizer),
+      .attendees: describe(array(participant), FieldDocs.Event.attendees),
+      .myStatus: describe(participantStatus, FieldDocs.Event.myStatus),
+      .birthdayContactIdentifier: describe(string, FieldDocs.Event.birthdayContactIdentifier),
+      .creationDate: describe(string, FieldDocs.Event.creationDate),
+      .modificationDate: describe(string, FieldDocs.Event.modificationDate),
+      .rawAlarms: describe(array(rawAlarm), FieldDocs.Event.rawAlarms),
+      .alarms: describe(
+        nullable(array(alarm)),
+        "Configured alerts; null when a stored trigger cannot be represented, in which case unsupported lists alarms and rawAlarms holds the stored values."
+      ),
+      .recurrenceRules: describe(array(rawRule), FieldDocs.Event.recurrenceRules),
+      .recurrence: describe(
+        nullable(rule),
+        "A single repeating schedule; null when the event does not repeat, or when the stored rules cannot be represented, in which case unsupported lists recurrence."
+      ),
+      .unsupported: describe(
+        array(enumeration(["alarms", "recurrence"])),
+        "Projected fields that are null because the stored value cannot be represented."),
+    ],
+    required: [
+      .id, .eventIdentifier, .calendarId, .allDay, .startDate, .endDate, .allDayStartDate,
+      .allDayEndDate, .timeZone, .detached, .recurring, .availability, .status, .attendees,
+      .rawAlarms, .alarms, .recurrenceRules, .recurrence, .unsupported,
+    ])
+  let eventSearch = schema(
+    EventSearchArguments.CodingKeys.self,
+    [
+      .from: from, .before: before,
+      .filter: schema(
+        EventSearchArguments.Filter.CodingKeys.self,
+        [
+          .query: describe(string, FieldDocs.EventFilter.query),
+          .titleContains: describe(string, FieldDocs.EventFilter.titleContains),
+          .calendarIds: describe(array(string), FieldDocs.EventFilter.calendarIds),
+          .accountIds: describe(array(string), FieldDocs.EventFilter.accountIds),
+          .allDay: describe(boolean, FieldDocs.EventFilter.allDay),
+          .recurring: describe(boolean, FieldDocs.EventFilter.recurring),
+          .detached: describe(boolean, FieldDocs.EventFilter.detached),
+          .hasAttendees: describe(boolean, FieldDocs.EventFilter.hasAttendees),
+          .hasAlarms: describe(boolean, FieldDocs.EventFilter.hasAlarms),
+          .availabilities: describe(array(availability), FieldDocs.EventFilter.availabilities),
+          .statuses: describe(array(eventStatus), FieldDocs.EventFilter.statuses),
+          .myStatuses: describe(array(participantStatus), FieldDocs.EventFilter.myStatuses),
+        ]),
+      .orderBy: schema(
+        EventSearchArguments.Order.CodingKeys.self,
+        [
+          .field: describe(
+            enumeration(EventSortField.allCases.map(\.rawValue)), FieldDocs.EventOrder.field),
+          .direction: describe(direction, FieldDocs.EventOrder.direction),
+        ], required: [.field]),
+      .limit: limit, .cursor: cursor,
+    ])
+  let summary = schema(
+    CalendarSummary.CodingKeys.self,
+    [
+      .calendarId: describe(string, FieldDocs.CalendarSummary.calendarId),
+      .from: describe(string, FieldDocs.EventWindow.resolvedFrom),
+      .before: describe(string, FieldDocs.EventWindow.resolvedBefore),
+      .total: describe(integer, FieldDocs.CalendarSummary.total),
+      .allDay: describe(integer, FieldDocs.CalendarSummary.allDay),
+      .timed: describe(integer, FieldDocs.CalendarSummary.timed),
+      .recurring: describe(integer, FieldDocs.CalendarSummary.recurring),
+      .withAttendees: describe(integer, FieldDocs.CalendarSummary.withAttendees),
+      .withAlarms: describe(integer, FieldDocs.CalendarSummary.withAlarms),
+    ],
+    required: [
+      .calendarId, .from, .before, .total, .allDay, .timed, .recurring, .withAttendees,
+      .withAlarms,
+    ])
+  func eventResult(_ event: Value, _ text: String) -> Value {
+    schema(EventOutput.CodingKeys.self, [.event: describe(event, text)], required: [.event])
+  }
   let annotations = Tool.Annotations(
     readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false)
   let noArguments = object([:])
@@ -188,6 +420,41 @@ private func toolsCatalog() -> [Tool] {
         [.calendar: describe(nullable(calendar), "The calendar, or null when absent.")],
         required: [.calendar])),
     Tool(
+      name: ToolName.calendarsSummary.rawValue,
+      description:
+        "Count the events overlapping a window in each accessible calendar, optionally restricted to calendarId. Repeating events count once per occurrence; the attribute counts overlap. from defaults to now and before to 30 days later.",
+      inputSchema: schema(
+        SummaryArguments.CodingKeys.self,
+        [
+          .calendarId: describe(
+            string, "Count only this calendar; omit for every accessible calendar."),
+          .from: from, .before: before,
+        ]),
+      annotations: annotations,
+      outputSchema: schema(
+        SummaryOutput.CodingKeys.self,
+        [.items: describe(array(summary), "Counts for each calendar.")], required: [.items])),
+    Tool(
+      name: ToolName.eventsSearch.rawValue,
+      description:
+        "Read events overlapping a window of time, with repeating events expanded into their occurrences. from defaults to now and before to 30 days later; the window may span at most 1096 days, and the result echoes it. Filters intersect; empty ID arrays match nothing. query matches the title, notes, or location. Results sort by start unless orderBy says otherwise, nulls last, ties by start then ID. Cursor is the next page offset; keep from, before, criteria, and limit unchanged across pages. All-day events report allDayStartDate and an inclusive allDayEndDate instead of timestamps. Attendees are read-only. A stored alarm or recurrence that cannot be represented is null and named in unsupported.",
+      inputSchema: eventSearch, annotations: annotations,
+      outputSchema: schema(
+        EventPageOutput.CodingKeys.self,
+        [
+          .items: describe(array(event), FieldDocs.EventPage.items),
+          .totalCount: describe(integer, FieldDocs.EventPage.totalCount),
+          .nextCursor: describe(string, "Cursor for the next page; omitted on the last page."),
+          .from: describe(string, FieldDocs.EventWindow.resolvedFrom),
+          .before: describe(string, FieldDocs.EventWindow.resolvedBefore),
+        ], required: [.items, .totalCount, .from, .before])),
+    Tool(
+      name: ToolName.eventsGet.rawValue,
+      description:
+        "Read one event or occurrence by the id a search returned; returns null when absent. A series id returns the first occurrence of the repeating event.",
+      inputSchema: byID("event or occurrence"), annotations: annotations,
+      outputSchema: eventResult(nullable(event), "The event, or null when absent.")),
+    Tool(
       name: ToolName.defaultsGet.rawValue,
       description:
         "Read the default calendar for new events and its account; unavailable defaults return null.",
@@ -222,7 +489,10 @@ enum ToolName: String {
   case accountsList = "accounts_list"
   case calendarsGet = "calendars_get"
   case calendarsList = "calendars_list"
+  case calendarsSummary = "calendars_summary"
   case defaultsGet = "defaults_get"
+  case eventsGet = "events_get"
+  case eventsSearch = "events_search"
 }
 private func callTool(_ tool: ToolName, _ params: CallTool.Parameters) async throws
   -> CallTool.Result
@@ -288,6 +558,63 @@ private func callTool(_ tool: ToolName, _ params: CallTool.Parameters) async thr
   case .calendarsGet:
     let id = try arguments(IDArguments.self).id
     return try result(CalendarOutput(calendar: await calendars().calendars.first { $0.id == id }))
+  case .calendarsSummary:
+    let request = try arguments(SummaryArguments.self)
+    var criteria = Search()
+    criteria.from = request.from
+    criteria.before = request.before
+    let window = try criteria.window(now: Date())
+    let scope = request.calendarId.map { [$0] }
+    let data = try await onMainActor { try readEvents(window: window, calendarIds: scope) }
+    let events = criteria.events(data)
+    return try result(
+      SummaryOutput(
+        items: data.calendars.calendars.filter { scope == nil || scope!.contains($0.id) }.map {
+          summarize(events, window: window, calendarId: $0.id)
+        }))
+  case .eventsGet:
+    let id = try arguments(IDArguments.self).id
+    return try result(
+      EventOutput(event: await onMainActor { try readEvent(id: id) }.map(MCPEvent.init(record:))))
+  case .eventsSearch:
+    let search = try arguments(EventSearchArguments.self)
+    var criteria = Search()
+    criteria.from = search.from
+    criteria.before = search.before
+    if let filter = search.filter {
+      criteria.query = filter.query
+      criteria.titleContains = filter.titleContains
+      criteria.calendarIds = try ids(filter.calendarIds, "calendarIds")
+      criteria.accountIds = try ids(filter.accountIds, "accountIds")
+      criteria.allDay = filter.allDay
+      criteria.recurring = filter.recurring
+      criteria.detached = filter.detached
+      criteria.hasAttendees = filter.hasAttendees
+      criteria.hasAlarms = filter.hasAlarms
+      criteria.availabilities = filter.availabilities
+      criteria.statuses = filter.statuses
+      criteria.myStatuses = filter.myStatuses
+    }
+    if let order = search.orderBy {
+      criteria.eventOrder = order.field
+      criteria.direction = order.direction ?? .ascending
+    }
+    let window = try criteria.window(now: Date())
+    // Check paging before the fetch, so a bad limit or cursor does not cost a read.
+    _ = try page([Int](), limit: search.limit, cursor: search.cursor)
+    let calendarIds = criteria.calendarIds
+    let accountIds = criteria.accountIds
+    let data = try await onMainActor {
+      try readEvents(window: window, calendarIds: calendarIds, accountIds: accountIds)
+    }
+    let output = try page(
+      criteria.events(data).map(MCPEvent.init(record:)), limit: search.limit,
+      cursor: search.cursor)
+    return try result(
+      EventPageOutput(
+        items: output.items, totalCount: output.totalCount,
+        nextCursor: output.nextCursor, from: timestamp(window.from),
+        before: timestamp(window.before)))
   case .defaultsGet:
     try noArguments()
     let data = try await calendars()

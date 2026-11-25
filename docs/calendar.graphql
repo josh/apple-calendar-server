@@ -999,6 +999,21 @@ type Calendar {
     filter: EventFilter
     orderBy: EventOrder
   ): EventPage
+
+  """
+  Event counts for this calendar over a window, regardless of pagination.
+  """
+  summary(
+    """
+    Inclusive start of the window events must overlap: an RFC 3339 timestamp, or YYYY-MM-DD for that day's midnight in the host zone. Defaults to now.
+    """
+    from: String
+
+    """
+    Exclusive end of the window, in the same forms. Defaults to 30 days after from. The window may span at most 1096 days.
+    """
+    before: String
+  ): CalendarSummary
 }
 
 enum CalendarType {
@@ -1031,6 +1046,51 @@ enum CalendarType {
   A type this server does not recognize.
   """
   UNKNOWN
+}
+
+"""
+Counts of the events in one calendar that overlap a window; they overlap.
+"""
+type CalendarSummary {
+  """
+  The resolved inclusive start of the window.
+  """
+  from: DateTime!
+
+  """
+  The resolved exclusive end of the window. Send from and before back unchanged for later pages, because the defaults move with the clock.
+  """
+  before: DateTime!
+
+  """
+  Events and occurrences overlapping the window.
+  """
+  total: Int!
+
+  """
+  All-day events.
+  """
+  allDay: Int!
+
+  """
+  Timed events.
+  """
+  timed: Int!
+
+  """
+  Occurrences that carry recurrence rules.
+  """
+  recurring: Int!
+
+  """
+  Events with attendees.
+  """
+  withAttendees: Int!
+
+  """
+  Events with alarms.
+  """
+  withAlarms: Int!
 }
 
 type PageInfo {

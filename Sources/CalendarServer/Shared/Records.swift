@@ -257,3 +257,25 @@ struct EventsData: Sendable {
   let events: [EventRecord]
   let window: EventWindow
 }
+// Counts of the events in one calendar that overlap a window. The attribute counts overlap.
+struct CalendarSummary: Encodable, Sendable {
+  let calendarId: String
+  let from, before: String
+  let total, allDay, timed, recurring, withAttendees, withAlarms: Int
+  enum CodingKeys: String, CodingKey {
+    case calendarId, from, before, total, allDay, timed, recurring, withAttendees, withAlarms
+  }
+}
+// `events` are already limited to the window, as Search.events returns them.
+func summarize(_ events: [EventRecord], window: EventWindow, calendarId: String)
+  -> CalendarSummary
+{
+  let items = events.filter { $0.calendarId == calendarId }
+  let allDay = items.filter(\.allDay).count
+  return CalendarSummary(
+    calendarId: calendarId, from: timestamp(window.from), before: timestamp(window.before),
+    total: items.count, allDay: allDay, timed: items.count - allDay,
+    recurring: items.filter(\.recurring).count,
+    withAttendees: items.filter { !$0.attendees.isEmpty }.count,
+    withAlarms: items.filter { !$0.alarms.isEmpty }.count)
+}

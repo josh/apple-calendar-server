@@ -196,4 +196,13 @@ enum FieldDocs {
     static let until = "Inclusive end timestamp; mutually exclusive with count."
     static let count = "Positive number of occurrences; mutually exclusive with until."
   }
+  enum CalendarSummary {
+    static let calendarId = "Identifier of the calendar counted."
+    static let total = "Events and occurrences overlapping the window."
+    static let allDay = "All-day events."
+    static let timed = "Timed events."
+    static let recurring = "Occurrences that carry recurrence rules."
+    static let withAttendees = "Events with attendees."
+    static let withAlarms = "Events with alarms."
+  }
 }

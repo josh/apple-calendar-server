@@ -38,6 +38,10 @@ struct GraphQLEventSearch: Decodable {
   }
 }
 
+struct GraphQLWindowArguments: Decodable {
+  let from, before: String?
+}
+
 struct GraphQLIDArguments: Decodable {
   let id: String
 }

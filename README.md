@@ -4,9 +4,11 @@ A Swift HTTP server for reading and changing Apple Calendar events on macOS thro
 GraphQL and MCP, with Prometheus metrics for event counts. EventKit runs in the
 server process.
 
-| Endpoint       | Documentation |
-| -------------- | ------------- |
-| `GET /metrics` | Prometheus    |
+| Endpoint        | Documentation                                               |
+| --------------- | ----------------------------------------------------------- |
+| `POST /graphql` | [GraphQL](docs/GRAPHQL.md), [schema](docs/calendar.graphql) |
+| `POST /mcp`     | [MCP](docs/MCP.md), [tool catalog](docs/mcp-tools.json)     |
+| `GET /metrics`  | [Metrics](docs/METRICS.md), [example](docs/metrics.prom)    |
 
 ## Running
 

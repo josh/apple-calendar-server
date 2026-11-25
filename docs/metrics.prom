@@ -1,0 +1,67 @@
+# Synthetic exposition example; values are illustrative.
+# HELP process_start_time_seconds Start time of the process since the Unix epoch; a change is a restart.
+# TYPE process_start_time_seconds gauge
+process_start_time_seconds 1795570000
+# HELP calendar_http_requests_total HTTP requests answered, by route and status code.
+# TYPE calendar_http_requests_total counter
+calendar_http_requests_total{route="/graphql",code="200"} 12
+calendar_http_requests_total{route="/mcp",code="200"} 7
+calendar_http_requests_total{route="/metrics",code="200"} 30
+calendar_http_requests_total{route="other",code="404"} 1
+# HELP calendar_main_actor_heartbeat_age_seconds Seconds since the main actor last ran a watchdog heartbeat; the process exits past 120.
+# TYPE calendar_main_actor_heartbeat_age_seconds gauge
+calendar_main_actor_heartbeat_age_seconds 4.5
+# HELP calendar_authorization_pending 1 while the startup Calendar access request has not finished; /graphql and /mcp answer 503 meanwhile.
+# TYPE calendar_authorization_pending gauge
+calendar_authorization_pending 0
+# HELP calendar_eventkit_up 1 when the last background EventKit read succeeded and its gauges follow.
+# TYPE calendar_eventkit_up gauge
+calendar_eventkit_up 1
+# HELP calendar_observation_timestamp_seconds When the event gauges were read, since the Unix epoch; day windows are relative to it.
+# TYPE calendar_observation_timestamp_seconds gauge
+calendar_observation_timestamp_seconds 1795570800
+# HELP calendar_accounts Number of accounts with accessible event calendars.
+# TYPE calendar_accounts gauge
+calendar_accounts 1
+# HELP calendar_calendars Number of accessible event calendars in an account.
+# TYPE calendar_calendars gauge
+calendar_calendars{account_id="account-example"} 1
+# HELP calendar_calendar_info Calendar identity, name, and type, with value 1.
+# TYPE calendar_calendar_info gauge
+calendar_calendar_info{account_id="account-example",calendar_id="calendar-example",name="Example",type="CALDAV"} 1
+# HELP calendar_events Events and occurrences by the window their start day falls in (past_month days -30 to -8, past_week -7 to -1, today, next_week 1 to 7, next_month 8 to 30) and kind.
+# TYPE calendar_events gauge
+calendar_events{account_id="account-example",calendar_id="calendar-example",window="past_month",kind="timed"} 14
+calendar_events{account_id="account-example",calendar_id="calendar-example",window="past_month",kind="all_day"} 2
+calendar_events{account_id="account-example",calendar_id="calendar-example",window="past_week",kind="timed"} 5
+calendar_events{account_id="account-example",calendar_id="calendar-example",window="past_week",kind="all_day"} 0
+calendar_events{account_id="account-example",calendar_id="calendar-example",window="today",kind="timed"} 2
+calendar_events{account_id="account-example",calendar_id="calendar-example",window="today",kind="all_day"} 1
+calendar_events{account_id="account-example",calendar_id="calendar-example",window="next_week",kind="timed"} 6
+calendar_events{account_id="account-example",calendar_id="calendar-example",window="next_week",kind="all_day"} 0
+calendar_events{account_id="account-example",calendar_id="calendar-example",window="next_month",kind="timed"} 9
+calendar_events{account_id="account-example",calendar_id="calendar-example",window="next_month",kind="all_day"} 3
+# HELP calendar_recurring_events Events and occurrences with recurrence rules, by the window their start day falls in.
+# TYPE calendar_recurring_events gauge
+calendar_recurring_events{account_id="account-example",calendar_id="calendar-example",window="past_month"} 6
+calendar_recurring_events{account_id="account-example",calendar_id="calendar-example",window="past_week"} 2
+calendar_recurring_events{account_id="account-example",calendar_id="calendar-example",window="today"} 1
+calendar_recurring_events{account_id="account-example",calendar_id="calendar-example",window="next_week"} 2
+calendar_recurring_events{account_id="account-example",calendar_id="calendar-example",window="next_month"} 4
+# HELP calendar_events_with_attendees Events and occurrences with attendees, by the window their start day falls in.
+# TYPE calendar_events_with_attendees gauge
+calendar_events_with_attendees{account_id="account-example",calendar_id="calendar-example",window="past_month"} 3
+calendar_events_with_attendees{account_id="account-example",calendar_id="calendar-example",window="past_week"} 1
+calendar_events_with_attendees{account_id="account-example",calendar_id="calendar-example",window="today"} 0
+calendar_events_with_attendees{account_id="account-example",calendar_id="calendar-example",window="next_week"} 1
+calendar_events_with_attendees{account_id="account-example",calendar_id="calendar-example",window="next_month"} 2
+# HELP calendar_events_with_alarms Events and occurrences with alarms, by the window their start day falls in.
+# TYPE calendar_events_with_alarms gauge
+calendar_events_with_alarms{account_id="account-example",calendar_id="calendar-example",window="past_month"} 8
+calendar_events_with_alarms{account_id="account-example",calendar_id="calendar-example",window="past_week"} 3
+calendar_events_with_alarms{account_id="account-example",calendar_id="calendar-example",window="today"} 2
+calendar_events_with_alarms{account_id="account-example",calendar_id="calendar-example",window="next_week"} 4
+calendar_events_with_alarms{account_id="account-example",calendar_id="calendar-example",window="next_month"} 6
+# HELP calendar_events_in_progress Timed events that had started and not yet ended when the gauges were read.
+# TYPE calendar_events_in_progress gauge
+calendar_events_in_progress{account_id="account-example",calendar_id="calendar-example"} 1

@@ -119,8 +119,7 @@ private func setAllDay(_ event: EKEvent, start: String, end: String) throws {
 // discarded with the store rather than left pending.
 @MainActor
 func executeEventWrite(_ request: EventWrite) throws -> EventRecord {
-  try requireAccess()
-  let store = EKEventStore()
+  let store = try openStore()
   let event: EKEvent
   let patch: EventChanges
   var span = EKSpan.thisEvent
@@ -334,8 +333,7 @@ func verifyAlarmDelivery(_ requested: [AlarmRecord], stored: [AlarmRecord], id: 
 func executeEventDelete(id: String, span requested: EventSpan?, allowAttendeeNotifications: Bool)
   throws -> DeleteResult
 {
-  try requireAccess()
-  let store = EKEventStore()
+  let store = try openStore()
   let event = try editableEvent(store, id: id)
   let span = try writeSpan(event, id: id, requested: requested)
   try requireAttendeeConsent(event, allowed: allowAttendeeNotifications)

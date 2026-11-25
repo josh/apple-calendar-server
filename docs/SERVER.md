@@ -42,9 +42,21 @@ executable to macOS and may be asked for access again; sign with a stable identi
 to keep the grant.
 
 `CALENDAR_REQUEST_ACCESS=1` requests missing full Calendar access at startup;
-reads never request it. There is no native read-only grant. While authorization
-is pending, `/graphql` and `/mcp` return 503; metrics remain available. Denial or
-authorization failure exits the process. Writes honor native editability.
+reads never request it. While the request is pending, `/graphql` and `/mcp` return
+503; metrics remain available.
+
+Every read and write needs Full Access. There is no native read-only grant, and
+"Add Only" access cannot read calendars or existing events, so the server treats it
+like no access. Without Full Access the server keeps running: GraphQL fields and MCP
+tools answer `NOT_AUTHORIZED` with a message naming the state and how to change it,
+`calendar_full_access` reports 0, and location search and schema discovery still
+work. A refusal does not exit the process, because launchd would only start it
+again into the same refusal. Writes honor native editability.
+
+Reducing the grant in System Settings does not stop a running server, and macOS
+keeps telling that process it has Full Access. The server notices from what EventKit
+then shows it (see [EventKit](EVENTKIT.md#ownership-and-access)) and answers
+`NOT_AUTHORIZED` from the next request on; granting Full Access again needs no restart.
 The server sends no Apple events and needs no Automation permission.
 
 ## Sockets
@@ -137,6 +149,7 @@ their limits are described in [EventKit](EVENTKIT.md#reads).
 | Code                    | Meaning                                                                       |
 | ----------------------- | ----------------------------------------------------------------------------- |
 | `INVALID_ARGUMENT`      | Invalid input; nothing saved.                                                 |
+| `NOT_AUTHORIZED`        | The process lacks full Calendar access; the message says how to grant it.     |
 | `NOT_FOUND`             | Object missing or inaccessible.                                               |
 | `READ_ONLY`             | Calendar does not allow the change.                                           |
 | `UNSUPPORTED`           | Stored value cannot be represented.                                           |

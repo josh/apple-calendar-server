@@ -46,6 +46,11 @@ func runtimeMetrics(eventKitUp: Bool, authorizing: Bool) -> String {
   )
   lines.append("calendar_authorization_pending \(authorizing ? 1 : 0)")
   lines += familyHeader(
+    "calendar_full_access", .gauge,
+    "1 when macOS grants this process full Calendar access; without it /graphql and /mcp answer NOT_AUTHORIZED."
+  )
+  lines.append("calendar_full_access \(hasFullAccess ? 1 : 0)")
+  lines += familyHeader(
     "calendar_eventkit_up", .gauge,
     "1 when the last background EventKit read succeeded and its gauges follow.")
   lines.append("calendar_eventkit_up \(eventKitUp ? 1 : 0)")

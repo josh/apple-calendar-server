@@ -14,6 +14,9 @@ calendar_main_actor_heartbeat_age_seconds 4.5
 # HELP calendar_authorization_pending 1 while the startup Calendar access request has not finished; /graphql and /mcp answer 503 meanwhile.
 # TYPE calendar_authorization_pending gauge
 calendar_authorization_pending 0
+# HELP calendar_full_access 1 when macOS grants this process full Calendar access; without it /graphql and /mcp answer NOT_AUTHORIZED.
+# TYPE calendar_full_access gauge
+calendar_full_access 1
 # HELP calendar_eventkit_up 1 when the last background EventKit read succeeded and its gauges follow.
 # TYPE calendar_eventkit_up gauge
 calendar_eventkit_up 1

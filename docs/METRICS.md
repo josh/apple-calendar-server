@@ -42,7 +42,9 @@ time, so an event can sit in yesterday's window until the next collection after
 midnight. Changes and removed calendars appear on success. Counts do not prove cloud sync.
 
 Before the first success or after failure, omit event gauges and report
-`calendar_eventkit_up 0`; health metrics remain. Failures clear previous counts
+`calendar_eventkit_up 0`; health metrics remain. `calendar_full_access` tells a missing
+grant apart from a failed read. It follows what the server last saw when opening
+the store, so it can lag a change in System Settings by one request or collection. Failures clear previous counts
 and retry after min(60 seconds, interval), doubling up to the interval. A server
 that starts while Calendar access is still pending therefore reports its first
 counts about a minute after access is granted.

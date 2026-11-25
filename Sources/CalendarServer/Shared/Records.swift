@@ -6,6 +6,7 @@ enum ErrorCode: String, Encodable, Sendable {
   case invalidArgument = "INVALID_ARGUMENT"
   case notFound = "NOT_FOUND"
   case forbidden = "FORBIDDEN"
+  case notAuthorized = "NOT_AUTHORIZED"
   case readOnly = "READ_ONLY"
   case unsupported = "UNSUPPORTED"
   case unsupportedOperation = "UNSUPPORTED_OPERATION"
@@ -26,6 +27,9 @@ struct ServerError: Error, CustomStringConvertible, Sendable {
   }
   static func notFound(_ message: String) -> Self { .init(code: .notFound, message: message) }
   static func forbidden(_ message: String) -> Self { .init(code: .forbidden, message: message) }
+  static func notAuthorized(_ message: String) -> Self {
+    .init(code: .notAuthorized, message: message)
+  }
   static func readOnly(_ message: String) -> Self { .init(code: .readOnly, message: message) }
   static func unsupported(_ message: String) -> Self { .init(code: .unsupported, message: message) }
   static func unsupportedOperation(_ message: String) -> Self {

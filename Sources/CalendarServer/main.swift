@@ -51,16 +51,19 @@ Task.detached {
       startMainActorWatchdog()
       // With access already granted there is nothing to request, so requests need not wait
       // behind the main actor for it.
-      let requestAccess = config.requestAccess && (try? requireAccess()) == nil
+      let requestAccess = config.requestAccess && !hasFullAccess
       let authorizing = OSAllocatedUnfairLock(initialState: requestAccess)
       if requestAccess {
         Task { @MainActor in
-          do {
-            try await authorizeCalendar()
-            authorizing.withLock { $0 = false }
-          } catch {
-            fail(error)
+          // A refusal leaves the server running: exiting would only drop connections and
+          // have launchd start it again into the same refusal. The APIs answer
+          // NOT_AUTHORIZED until access is granted.
+          do { try await authorizeCalendar() } catch {
+            serverLogger.error(
+              "Calendar access was not granted",
+              metadata: ["status": "\(statusName())", "reason": "\(error)"])
           }
+          authorizing.withLock { $0 = false }
         }
       }
       try await serve(sockets: sockets, config: config, authorizing: authorizing)

@@ -40,8 +40,7 @@ func eventCalendar(_ store: EKEventStore, named name: String) throws -> EKCalend
 
 @MainActor
 func executeCalendarWrite(_ request: CalendarWrite) throws -> CalendarRecord {
-  try requireAccess()
-  let store = EKEventStore()
+  let store = try openStore()
   let calendar: EKCalendar
   let patch: CalendarChanges
   switch request {
@@ -126,8 +125,7 @@ private func hasEvents(_ store: EKEventStore, in calendar: EKCalendar, now: Date
 
 @MainActor
 func executeCalendarDelete(id: String, allowNonEmpty: Bool) async throws -> DeleteResult {
-  try requireAccess()
-  let store = EKEventStore()
+  let store = try openStore()
   let existing = try editableCalendar(store, id: id)
   if !allowNonEmpty {
     let occupied = try await hasEvents(store, in: existing, now: Date())

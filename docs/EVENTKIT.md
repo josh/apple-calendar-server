@@ -15,8 +15,18 @@ account references. Only value records leave the actor. A write validates and ap
 its changes to its own store, so a rejected change is discarded with the store rather
 than left pending. Requests can interleave between calls; writes are not globally serialized.
 
-Require full access before operations. Denied access fails rather than returning
-empty data. See [startup authorization](SERVER.md#setup).
+Require full access before operations. Any other state, including add-only access,
+fails with `NOT_AUTHORIZED` rather than returning empty data. See
+[startup authorization](SERVER.md#setup).
+
+`authorizationStatus(for:)` is not enough on its own. A process granted full access
+kept reporting `fullAccess` after the grant was reduced in System Settings, and
+EventKit answered without an error: under Add Only it showed one placeholder calendar,
+`VIRTUAL_APP_CALENDAR_UUID`, and no events; under No Access it showed no calendars.
+A new process started under Add Only reported `writeOnly` correctly. So every store is checked when
+opened, and either view fails with `NOT_AUTHORIZED`. This relies on Calendar always
+keeping at least one calendar. Restoring Full Access brought the real calendars back to
+the same process.
 
 A calendar is an [EKCalendar](https://developer.apple.com/documentation/eventkit/ekcalendar),
 owned by an [EKSource](https://developer.apple.com/documentation/eventkit/eksource).

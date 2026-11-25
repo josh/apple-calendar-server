@@ -60,6 +60,12 @@ func addingLocalDays(_ days: Int, to date: Date) -> Date {
   hostCalendar.date(byAdding: .day, value: days, to: date) ?? date
 }
 func startOfLocalDay(containing date: Date) -> Date { hostCalendar.startOfDay(for: date) }
+// Whole host-zone calendar days from one instant's day to another's; negative when earlier.
+func localDays(from: Date, to: Date) -> Int {
+  hostCalendar.dateComponents(
+    [.day], from: hostCalendar.startOfDay(for: from), to: hostCalendar.startOfDay(for: to)
+  ).day ?? 0
+}
 
 func orderEvents(_ items: [EventRecord], by field: EventSortField, direction: SortDirection)
   -> [EventRecord]

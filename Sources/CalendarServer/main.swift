@@ -24,12 +24,15 @@ func fail(_ error: Error) -> Never {
 }
 
 // launchd starts the server and owns its sockets; CALENDAR_* environment variables in
-// the plist configure it. The only argument is --help.
+// the plist configure it. The only arguments are --help and the developer dump of the
+// GraphQL schema.
 Task.detached {
   do {
     let arguments = Array(CommandLine.arguments.dropFirst())
     if arguments == ["--help"] || arguments == ["-h"] {
       print(usage)
+    } else if arguments == ["--dump-graphql-schema"] {
+      print(try graphQLSchemaSDL())
     } else if !arguments.isEmpty {
       throw ServerError.internalError(
         "Use --help; the server is configured by CALENDAR_* variables in its launchd plist")

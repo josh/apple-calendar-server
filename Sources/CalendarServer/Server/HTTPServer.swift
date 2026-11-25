@@ -111,7 +111,7 @@ func serve(
     await metricsCollector.run(interval: config.metricsInterval)
   }
   defer { collectionTask.cancel() }
-  let handlers: [Route: APIHandler] = [:]
+  let handlers: [Route: APIHandler] = [.graphql: try makeGraphQLHandler()]
   let origins = Set(config.allowedOrigins)
   let responder: Responder = { request in
     let started = ContinuousClock.now

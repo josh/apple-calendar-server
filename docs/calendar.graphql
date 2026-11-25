@@ -1,0 +1,249 @@
+type Query {
+  """
+  Accounts that have event calendars.
+  """
+  accounts: [Account!]
+
+  """
+  Find an account by its unique identifier; null when missing.
+  """
+  account(id: ID!): Account
+
+  """
+  Event calendars available in Calendar.
+  """
+  calendars(
+    limit: Int! = 50
+    offset: Int! = 0
+    filter: CalendarFilter
+    orderBy: CalendarOrder
+  ): CalendarPage
+
+  """
+  Find a calendar by its unique identifier; null when missing.
+  """
+  calendar(id: ID!): Calendar
+
+  """
+  The account of the default calendar, or null if none is available.
+  """
+  defaultAccount: Account
+
+  """
+  The default calendar for new events, or null if none is available.
+  """
+  defaultCalendar: Calendar
+}
+
+type Account {
+  """
+  Unique identifier of the account. Treat this value as opaque.
+  """
+  id: ID!
+
+  """
+  The name of the account.
+  """
+  name: String
+
+  """
+  Calendars in this account; filters apply within it.
+  """
+  calendars(
+    limit: Int! = 50
+    offset: Int! = 0
+    filter: CalendarFilter
+    orderBy: CalendarOrder
+  ): CalendarPage
+}
+
+input CalendarFilter {
+  """
+  Case-insensitive substring of the calendar name.
+  """
+  query: String
+
+  """
+  Match calendars in any of these accounts, intersected with the parent scope; [] matches nothing.
+  """
+  accountIds: [ID!]
+
+  """
+  Match whether events in the calendar can be modified.
+  """
+  allowsContentModifications: Boolean
+
+  """
+  Match subscribed or unsubscribed calendars.
+  """
+  subscribed: Boolean
+}
+
+input CalendarOrder {
+  """
+  Direction of name ordering. Ties use identifier order; without orderBy, calendars use identifier order.
+  """
+  direction: SortDirection = ASC
+}
+
+enum SortDirection {
+  """
+  Smallest or earliest first.
+  """
+  ASC
+
+  """
+  Largest or latest first.
+  """
+  DESC
+}
+
+type CalendarPage {
+  """
+  Calendars in this page.
+  """
+  items: [Calendar!]!
+
+  """
+  Number of matching calendars before pagination.
+  """
+  totalCount: Int!
+
+  """
+  Position and availability of neighboring pages.
+  """
+  pageInfo: PageInfo!
+}
+
+type Calendar {
+  """
+  Unique identifier of the calendar. Treat this value as opaque.
+  """
+  id: ID!
+
+  """
+  The name of the calendar.
+  """
+  name: String
+
+  """
+  The color of the calendar as an sRGB #RRGGBBAA hex string.
+  """
+  color: String
+
+  """
+  How the calendar is stored: local, CalDAV (including iCloud), Exchange, a subscription, or the Birthdays calendar.
+  """
+  type: CalendarType!
+
+  """
+  Whether events can be added, edited, and deleted in this calendar.
+  """
+  allowsContentModifications: Boolean
+
+  """
+  Whether the calendar's own properties can be edited and the calendar deleted: it must allow content changes and be neither immutable nor subscribed.
+  """
+  allowsCalendarModifications: Boolean
+
+  """
+  Whether the calendar is a subscription.
+  """
+  subscribed: Boolean
+
+  """
+  Whether the calendar is fixed by the system, such as Birthdays, and cannot be edited or deleted.
+  """
+  immutable: Boolean
+
+  """
+  Availability values events in this calendar can store; empty when the calendar does not support availability.
+  """
+  supportedAvailabilities: [EventAvailability!]!
+
+  """
+  The account that owns the calendar.
+  """
+  account: Account
+}
+
+enum CalendarType {
+  """
+  Stored only on this Mac.
+  """
+  LOCAL
+
+  """
+  A CalDAV calendar, including iCloud.
+  """
+  CALDAV
+
+  """
+  An Exchange calendar.
+  """
+  EXCHANGE
+
+  """
+  A subscribed, read-only feed.
+  """
+  SUBSCRIPTION
+
+  """
+  The Birthdays calendar built from Contacts.
+  """
+  BIRTHDAY
+
+  """
+  A type this server does not recognize.
+  """
+  UNKNOWN
+}
+
+enum EventAvailability {
+  """
+  The calendar does not store availability.
+  """
+  NOT_SUPPORTED
+
+  """
+  Shown as busy.
+  """
+  BUSY
+
+  """
+  Shown as free.
+  """
+  FREE
+
+  """
+  Shown as tentative.
+  """
+  TENTATIVE
+
+  """
+  Shown as out of office.
+  """
+  UNAVAILABLE
+}
+
+type PageInfo {
+  """
+  Requested zero-based offset.
+  """
+  offset: Int!
+
+  """
+  Requested maximum page size.
+  """
+  limit: Int!
+
+  """
+  Whether results exist after this page.
+  """
+  hasNextPage: Boolean!
+
+  """
+  Whether matching results exist before the requested offset.
+  """
+  hasPreviousPage: Boolean!
+}

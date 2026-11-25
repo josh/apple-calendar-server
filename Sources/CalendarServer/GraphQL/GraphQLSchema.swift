@@ -737,11 +737,43 @@ func makeSchema() throws -> GraphQLSchema {
       return try await calendarData(context).calendars.first { $0.id == id }
     })
   event.fields = { eventFields }
-  let mutation = try makeMutationType(calendar: calendar)
+  let mutation = try makeMutationType(
+    calendar: calendar, event: event, dateTime: dateTime, localDate: localDate, url: url,
+    availability: availability, frequency: frequency, weekday: weekday)
+  let locationSearchResult = try GraphQLObjectType(
+    name: "LocationSearchResult",
+    fields: [
+      "name": field(
+        GraphQLString, \LocationSearchResult.name,
+        description: FieldDocs.LocationSearch.name),
+      "address": field(
+        GraphQLString, \LocationSearchResult.address,
+        description: FieldDocs.LocationSearch.address),
+      "latitude": field(
+        GraphQLNonNull(GraphQLFloat), \LocationSearchResult.latitude,
+        description: FieldDocs.LocationSearch.latitude),
+      "longitude": field(
+        GraphQLNonNull(GraphQLFloat), \LocationSearchResult.longitude,
+        description: FieldDocs.LocationSearch.longitude),
+    ])
   return try GraphQLSchema(
     query: GraphQLObjectType(
       name: "Query",
       fields: [
+        "searchLocations": GraphQLField(
+          type: GraphQLList(GraphQLNonNull(locationSearchResult)),
+          description: FieldDocs.LocationSearch.description,
+          args: [
+            "query": GraphQLArgument(
+              type: GraphQLNonNull(GraphQLString),
+              description: FieldDocs.LocationSearch.query),
+            "limit": GraphQLArgument(
+              type: GraphQLNonNull(GraphQLInt),
+              description: FieldDocs.LocationSearch.limit, defaultValue: 5),
+          ],
+          resolve: { _, args, _, _ in
+            try await searchLocations(decodeInput(LocationSearchArguments.self, from: args))
+          }),
         "accounts": GraphQLField(
           type: GraphQLList(GraphQLNonNull(account)),
           description: "Accounts that have event calendars.",

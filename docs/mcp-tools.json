@@ -3,6 +3,1894 @@
     {
       "annotations": {
         "destructiveHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Find places or addresses through Apple Maps. Select a result and use its name and coordinates as an event's structuredLocation. Sends the query to Apple; does not change events.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 5,
+            "description": "Maximum candidates to return, from 1 through 10; defaults to 5.",
+            "maximum": 10,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "description": "Place name or address. Include a city or region to narrow the search.",
+            "type": "string"
+          }
+        },
+        "required": ["query"],
+        "type": "object"
+      },
+      "name": "locations_search",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "address": {
+                  "description": "Formatted address or place description, when available.",
+                  "type": "string"
+                },
+                "latitude": {
+                  "description": "Latitude in degrees, between -90 and 90.",
+                  "type": "number"
+                },
+                "longitude": {
+                  "description": "Longitude in degrees, between -180 and 180.",
+                  "type": "number"
+                },
+                "name": {
+                  "description": "Name of the place, when available.",
+                  "type": "string"
+                }
+              },
+              "required": ["latitude", "longitude"],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": ["items"],
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Create an event in an editable calendar. Supply startDate and endDate for a timed event, or allDayStartDate for an all-day one. Attendees cannot be added. If a step after the save fails, the error has code WRITE_APPLIED; search before retrying, because creation is not idempotent.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "alarms": {
+            "description": "Replace all alerts; [] removes them. Each needs exactly one of absoluteDate or relativeOffsetSeconds.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "absoluteDate": {
+                  "description": "Alert at this date and time.",
+                  "type": "string"
+                },
+                "emailAddress": {
+                  "description": "Address to email. The provider may not keep it; a WRITE_APPLIED error reports that.",
+                  "type": "string"
+                },
+                "relativeOffsetSeconds": {
+                  "description": "Alert this many seconds from the event's start: negative before, zero at, positive after.",
+                  "type": "number"
+                },
+                "soundName": {
+                  "description": "System sound to play. The provider may not keep it; a WRITE_APPLIED error reports that.",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "allDayEndDate": {
+            "description": "Last day of an all-day event, inclusive; defaults to the start day on creation.",
+            "type": "string"
+          },
+          "allDayStartDate": {
+            "description": "First day of an all-day event, in the host zone. On a patch, a new start alone moves the event and keeps its length in days. Do not combine with startDate or endDate.",
+            "type": "string"
+          },
+          "availability": {
+            "description": "How the event shows on a free/busy schedule; must be one of the calendar's supportedAvailabilities.",
+            "enum": ["BUSY", "FREE", "TENTATIVE", "UNAVAILABLE"],
+            "type": "string"
+          },
+          "calendarId": {
+            "description": "Calendar for the event. On creation, omitting both calendarId and calendarName uses the default calendar; on a patch it moves the event.",
+            "type": "string"
+          },
+          "calendarName": {
+            "description": "Calendar chosen by exact name, ignoring case. No match is NOT_FOUND and several matches are INVALID_ARGUMENT. Mutually exclusive with calendarId.",
+            "type": "string"
+          },
+          "endDate": {
+            "description": "End of a timed event; must not precede the start. On a patch, a new end alone resizes the event.",
+            "type": "string"
+          },
+          "location": {
+            "description": "Location as text. Replaces any stored coordinates. Mutually exclusive with structuredLocation.",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Notes attached to the event.",
+            "type": "string"
+          },
+          "recurrence": {
+            "additionalProperties": false,
+            "description": "Make the event repeat on one schedule, replacing any stored rules. On a repeating event this needs FUTURE_EVENTS or the series id.",
+            "properties": {
+              "daysOfMonth": {
+                "description": "Days 1..31 or -31..-1 counting backward from the end of the month. Monthly rules only.",
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "daysOfWeek": {
+                "description": "Weekday constraints. Null means unconstrained. Not allowed for daily rules.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "day": {
+                      "description": "The weekday to match.",
+                      "enum": [
+                        "SUNDAY",
+                        "MONDAY",
+                        "TUESDAY",
+                        "WEDNESDAY",
+                        "THURSDAY",
+                        "FRIDAY",
+                        "SATURDAY"
+                      ],
+                      "type": "string"
+                    },
+                    "ordinal": {
+                      "description": "Occurrence of this weekday: 1 is first, -1 last; omit for every occurrence. Valid range -53..53 excluding zero; non-null ordinals require monthly or yearly frequency.",
+                      "type": "integer"
+                    }
+                  },
+                  "required": ["day"],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "daysOfWeekNames": {
+                "description": "Weekday phrases such as tuesday or second tuesday, ignoring case. Ordinals: first through fifth and last through fifth-to-last. Mutually exclusive with daysOfWeek.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "daysOfYear": {
+                "description": "Year days 1..366 or -366..-1 counting backward from year end. Yearly rules only.",
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "end": {
+                "additionalProperties": false,
+                "description": "When repetition stops; null means no specified end.",
+                "properties": {
+                  "count": {
+                    "description": "Positive number of occurrences; mutually exclusive with until.",
+                    "type": "integer"
+                  },
+                  "until": {
+                    "description": "Inclusive end timestamp; mutually exclusive with count.",
+                    "type": "string"
+                  }
+                },
+                "required": [],
+                "type": "object"
+              },
+              "frequency": {
+                "description": "The unit of repetition.",
+                "enum": ["DAILY", "WEEKLY", "MONTHLY", "YEARLY"],
+                "type": "string"
+              },
+              "interval": {
+                "description": "Positive number of frequency units between occurrences.",
+                "minimum": 1,
+                "type": "integer"
+              },
+              "monthsOfYear": {
+                "description": "Months 1..12. Yearly rules only.",
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "setPositions": {
+                "description": "Select positions 1..366 or -366..-1 from occurrences matching the other constraints in each period. Requires another selector.",
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "weeksOfYear": {
+                "description": "Week numbers 1..53 or -53..-1 counting backward from year end. Yearly rules only.",
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            },
+            "required": ["frequency", "interval"],
+            "type": "object"
+          },
+          "startDate": {
+            "description": "Start of a timed event. On a patch, a new start alone moves the event and keeps its length.",
+            "type": "string"
+          },
+          "structuredLocation": {
+            "additionalProperties": false,
+            "description": "Location with coordinates, as from a location search. Mutually exclusive with location.",
+            "properties": {
+              "latitude": {
+                "description": "Latitude in degrees, between -90 and 90.",
+                "type": "number"
+              },
+              "longitude": {
+                "description": "Longitude in degrees, between -180 and 180.",
+                "type": "number"
+              },
+              "radiusMeters": {
+                "description": "Radius in meters; zero or omitted requests the system default.",
+                "type": "number"
+              },
+              "title": {
+                "description": "Display name of the place; must not be blank.",
+                "type": "string"
+              }
+            },
+            "required": ["title", "latitude", "longitude"],
+            "type": "object"
+          },
+          "timeZone": {
+            "description": "IANA time zone a timed event is anchored to; it does not move the event's instants. New timed events default to the host zone. Not allowed for all-day events.",
+            "type": "string"
+          },
+          "title": {
+            "description": "Title of the event; must not be blank.",
+            "type": "string"
+          },
+          "url": {
+            "description": "Absolute URL attached to the event.",
+            "type": "string"
+          }
+        },
+        "required": ["title"],
+        "type": "object"
+      },
+      "name": "events_create",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "event": {
+            "additionalProperties": false,
+            "description": "The saved event.",
+            "properties": {
+              "alarms": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "action": {
+                          "description": "Stored alarm action: display, audio, email, procedure, or unknown.",
+                          "type": "string"
+                        },
+                        "at": {
+                          "description": "The date and time at which the alert triggers.",
+                          "type": "string"
+                        },
+                        "emailAddress": {
+                          "description": "Stored email alarm recipient, when set.",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "description": "AbsoluteAlarm carries at; RelativeAlarm carries offsetSeconds.",
+                          "enum": ["AbsoluteAlarm", "RelativeAlarm"],
+                          "type": "string"
+                        },
+                        "offsetSeconds": {
+                          "description": "Seconds from the start date: negative before, zero at, positive after.",
+                          "type": "number"
+                        },
+                        "soundName": {
+                          "description": "Stored sound name, when set.",
+                          "type": "string"
+                        }
+                      },
+                      "required": ["kind", "action"],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Configured alerts; null when a stored trigger cannot be represented, in which case unsupported lists alarms and rawAlarms holds the stored values."
+              },
+              "allDay": {
+                "description": "Whether the event covers whole days rather than a time span.",
+                "type": "boolean"
+              },
+              "allDayEndDate": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The last day of an all-day event, inclusive; a one-day event has the same start and end. Null for a timed event."
+              },
+              "allDayStartDate": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The first day of an all-day event, in the host zone; null for a timed event."
+              },
+              "attendees": {
+                "description": "People, rooms, and resources invited to the event. EventKit cannot add, remove, or answer for attendees.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "currentUser": {
+                      "description": "Whether this participant is the user of this Mac.",
+                      "type": "boolean"
+                    },
+                    "email": {
+                      "description": "Email address taken from a mailto: URL, when the address is one.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Display name, when known.",
+                      "type": "string"
+                    },
+                    "role": {
+                      "description": "The participant's role in the event.",
+                      "enum": [
+                        "UNKNOWN",
+                        "REQUIRED",
+                        "OPTIONAL",
+                        "CHAIR",
+                        "NON_PARTICIPANT"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "description": "Whether the participant accepted, declined, or has yet to answer.",
+                      "enum": [
+                        "UNKNOWN",
+                        "PENDING",
+                        "ACCEPTED",
+                        "DECLINED",
+                        "TENTATIVE",
+                        "DELEGATED",
+                        "COMPLETED",
+                        "IN_PROCESS"
+                      ],
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Whether the participant is a person, room, resource, or group.",
+                      "enum": [
+                        "UNKNOWN",
+                        "PERSON",
+                        "ROOM",
+                        "RESOURCE",
+                        "GROUP"
+                      ],
+                      "type": "string"
+                    },
+                    "url": {
+                      "description": "The participant's address, usually a mailto: URL.",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["status", "role", "type", "currentUser"],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "availability": {
+                "description": "How the event shows on a free/busy schedule.",
+                "enum": [
+                  "NOT_SUPPORTED",
+                  "BUSY",
+                  "FREE",
+                  "TENTATIVE",
+                  "UNAVAILABLE"
+                ],
+                "type": "string"
+              },
+              "birthdayContactIdentifier": {
+                "description": "Contacts identifier of the person a Birthdays-calendar event is for.",
+                "type": "string"
+              },
+              "calendarId": {
+                "description": "Identifier of the owning calendar.",
+                "type": "string"
+              },
+              "creationDate": {
+                "description": "When the event was created.",
+                "type": "string"
+              },
+              "detached": {
+                "description": "Whether this occurrence was edited apart from its repeating series.",
+                "type": "boolean"
+              },
+              "endDate": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "When a timed event ends; null for an all-day event."
+              },
+              "eventIdentifier": {
+                "description": "The identifier EventKit stores for the event, for reference only.",
+                "type": "string"
+              },
+              "externalId": {
+                "description": "Identifier assigned by the calendar server. Occurrences and copies can share it, so it does not identify one event.",
+                "type": "string"
+              },
+              "id": {
+                "description": "Identifier of this event or occurrence. An occurrence of a repeating event is its series identifier, a slash, and its current start. Treat the value as opaque; it changes when an occurrence moves and can change after a write or a sync.",
+                "type": "string"
+              },
+              "location": {
+                "description": "The location of the event as text.",
+                "type": "string"
+              },
+              "modificationDate": {
+                "description": "When the event was last modified.",
+                "type": "string"
+              },
+              "myStatus": {
+                "description": "The current user's own participation status; null when they are not an attendee.",
+                "enum": [
+                  "UNKNOWN",
+                  "PENDING",
+                  "ACCEPTED",
+                  "DECLINED",
+                  "TENTATIVE",
+                  "DELEGATED",
+                  "COMPLETED",
+                  "IN_PROCESS"
+                ],
+                "type": "string"
+              },
+              "notes": {
+                "description": "The notes attached to the event.",
+                "type": "string"
+              },
+              "occurrenceDate": {
+                "description": "The start EventKit reports for this occurrence within its series; null for an event that does not repeat. It is not a stable key: it has been observed to follow a detached occurrence that moves.",
+                "type": "string"
+              },
+              "organizer": {
+                "additionalProperties": false,
+                "description": "Who organized the event; null when it has no organizer.",
+                "properties": {
+                  "currentUser": {
+                    "description": "Whether this participant is the user of this Mac.",
+                    "type": "boolean"
+                  },
+                  "email": {
+                    "description": "Email address taken from a mailto: URL, when the address is one.",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Display name, when known.",
+                    "type": "string"
+                  },
+                  "role": {
+                    "description": "The participant's role in the event.",
+                    "enum": [
+                      "UNKNOWN",
+                      "REQUIRED",
+                      "OPTIONAL",
+                      "CHAIR",
+                      "NON_PARTICIPANT"
+                    ],
+                    "type": "string"
+                  },
+                  "status": {
+                    "description": "Whether the participant accepted, declined, or has yet to answer.",
+                    "enum": [
+                      "UNKNOWN",
+                      "PENDING",
+                      "ACCEPTED",
+                      "DECLINED",
+                      "TENTATIVE",
+                      "DELEGATED",
+                      "COMPLETED",
+                      "IN_PROCESS"
+                    ],
+                    "type": "string"
+                  },
+                  "type": {
+                    "description": "Whether the participant is a person, room, resource, or group.",
+                    "enum": ["UNKNOWN", "PERSON", "ROOM", "RESOURCE", "GROUP"],
+                    "type": "string"
+                  },
+                  "url": {
+                    "description": "The participant's address, usually a mailto: URL.",
+                    "type": "string"
+                  }
+                },
+                "required": ["status", "role", "type", "currentUser"],
+                "type": "object"
+              },
+              "rawAlarms": {
+                "description": "Alarms exactly as stored.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "absoluteDate": {
+                      "description": "Absolute trigger time, when set.",
+                      "type": "string"
+                    },
+                    "action": {
+                      "description": "Stored alarm action: display, audio, email, procedure, or unknown.",
+                      "type": "string"
+                    },
+                    "emailAddress": {
+                      "description": "Stored email alarm recipient, when set.",
+                      "type": "string"
+                    },
+                    "proximity": {
+                      "description": "none, enter, leave, or unknown.",
+                      "enum": ["none", "enter", "leave", "unknown"],
+                      "type": "string"
+                    },
+                    "relativeOffset": {
+                      "description": "Seconds from the start date. Zero alone does not distinguish absolute and relative triggers.",
+                      "type": "number"
+                    },
+                    "soundName": {
+                      "description": "Stored sound name, when set.",
+                      "type": "string"
+                    },
+                    "structuredLocation": {
+                      "additionalProperties": false,
+                      "description": "The location of a geofence trigger, when set.",
+                      "properties": {
+                        "latitude": {
+                          "description": "Latitude in degrees, when set.",
+                          "type": "number"
+                        },
+                        "longitude": {
+                          "description": "Longitude in degrees, when set.",
+                          "type": "number"
+                        },
+                        "radius": {
+                          "description": "Radius in meters; zero means the system default.",
+                          "type": "number"
+                        },
+                        "title": {
+                          "description": "Display name of the location.",
+                          "type": "string"
+                        }
+                      },
+                      "required": ["radius"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["action", "relativeOffset", "proximity"],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "recurrence": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "daysOfMonth": {
+                        "description": "Days 1..31 or -31..-1 counting backward from the end of the month. Monthly rules only.",
+                        "items": {
+                          "type": "integer"
+                        },
+                        "type": "array"
+                      },
+                      "daysOfWeek": {
+                        "description": "Weekday constraints. Null means unconstrained. Not allowed for daily rules.",
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "day": {
+                              "description": "The weekday to match.",
+                              "enum": [
+                                "SUNDAY",
+                                "MONDAY",
+                                "TUESDAY",
+                                "WEDNESDAY",
+                                "THURSDAY",
+                                "FRIDAY",
+                                "SATURDAY"
+                              ],
+                              "type": "string"
+                            },
+                            "ordinal": {
+                              "description": "Occurrence of this weekday: 1 is first, -1 last; omit for every occurrence. Valid range -53..53 excluding zero; non-null ordinals require monthly or yearly frequency.",
+                              "type": "integer"
+                            }
+                          },
+                          "required": ["day"],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "daysOfYear": {
+                        "description": "Year days 1..366 or -366..-1 counting backward from year end. Yearly rules only.",
+                        "items": {
+                          "type": "integer"
+                        },
+                        "type": "array"
+                      },
+                      "end": {
+                        "additionalProperties": false,
+                        "description": "When repetition stops; null means no specified end.",
+                        "properties": {
+                          "count": {
+                            "description": "Positive number of occurrences; mutually exclusive with until.",
+                            "type": "integer"
+                          },
+                          "until": {
+                            "description": "Inclusive end timestamp; mutually exclusive with count.",
+                            "type": "string"
+                          }
+                        },
+                        "required": [],
+                        "type": "object"
+                      },
+                      "frequency": {
+                        "description": "The unit of repetition.",
+                        "enum": ["DAILY", "WEEKLY", "MONTHLY", "YEARLY"],
+                        "type": "string"
+                      },
+                      "interval": {
+                        "description": "Positive number of frequency units between occurrences.",
+                        "type": "integer"
+                      },
+                      "monthsOfYear": {
+                        "description": "Months 1..12. Yearly rules only.",
+                        "items": {
+                          "type": "integer"
+                        },
+                        "type": "array"
+                      },
+                      "setPositions": {
+                        "description": "Select positions 1..366 or -366..-1 from occurrences matching the other constraints in each period. Requires another selector.",
+                        "items": {
+                          "type": "integer"
+                        },
+                        "type": "array"
+                      },
+                      "weeksOfYear": {
+                        "description": "Week numbers 1..53 or -53..-1 counting backward from year end. Yearly rules only.",
+                        "items": {
+                          "type": "integer"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": ["frequency", "interval"],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A single repeating schedule; null when the event does not repeat, or when the stored rules cannot be represented, in which case unsupported lists recurrence."
+              },
+              "recurrenceRules": {
+                "description": "Recurrence rules exactly as stored.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "calendarIdentifier": {
+                      "description": "Calendar the rule is evaluated in.",
+                      "type": "string"
+                    },
+                    "daysOfTheMonth": {
+                      "description": "Selector values; empty when unconstrained.",
+                      "items": {
+                        "type": "integer"
+                      },
+                      "type": "array"
+                    },
+                    "daysOfTheWeek": {
+                      "description": "Weekday constraints; empty when unconstrained.",
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "dayOfTheWeek": {
+                            "description": "Weekday, Sunday = 1.",
+                            "type": "integer"
+                          },
+                          "weekNumber": {
+                            "description": "Signed ordinal; zero means every occurrence.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": ["dayOfTheWeek", "weekNumber"],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "daysOfTheYear": {
+                      "description": "Selector values; empty when unconstrained.",
+                      "items": {
+                        "type": "integer"
+                      },
+                      "type": "array"
+                    },
+                    "end": {
+                      "additionalProperties": false,
+                      "description": "When repetition stops; null for no end.",
+                      "properties": {
+                        "endDate": {
+                          "description": "End timestamp, when set.",
+                          "type": "string"
+                        },
+                        "occurrenceCount": {
+                          "description": "Number of occurrences; zero when unset.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": ["occurrenceCount"],
+                      "type": "object"
+                    },
+                    "firstDayOfTheWeek": {
+                      "description": "First day of the week, Sunday = 1; zero is unset.",
+                      "type": "integer"
+                    },
+                    "frequency": {
+                      "description": "daily, weekly, monthly, yearly, or unknown.",
+                      "enum": [
+                        "daily",
+                        "weekly",
+                        "monthly",
+                        "yearly",
+                        "unknown"
+                      ],
+                      "type": "string"
+                    },
+                    "interval": {
+                      "description": "Frequency units between occurrences.",
+                      "type": "integer"
+                    },
+                    "monthsOfTheYear": {
+                      "description": "Selector values; empty when unconstrained.",
+                      "items": {
+                        "type": "integer"
+                      },
+                      "type": "array"
+                    },
+                    "setPositions": {
+                      "description": "Selector values; empty when unconstrained.",
+                      "items": {
+                        "type": "integer"
+                      },
+                      "type": "array"
+                    },
+                    "weeksOfTheYear": {
+                      "description": "Selector values; empty when unconstrained.",
+                      "items": {
+                        "type": "integer"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "frequency",
+                    "calendarIdentifier",
+                    "interval",
+                    "firstDayOfTheWeek",
+                    "daysOfTheWeek",
+                    "daysOfTheMonth",
+                    "daysOfTheYear",
+                    "weeksOfTheYear",
+                    "monthsOfTheYear",
+                    "setPositions"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "recurring": {
+                "description": "Whether the event carries recurrence rules.",
+                "type": "boolean"
+              },
+              "seriesId": {
+                "description": "Identifier shared by every occurrence of a repeating event; null for an event that does not repeat. As an id it names the whole series.",
+                "type": "string"
+              },
+              "startDate": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "When a timed event starts; null for an all-day event."
+              },
+              "status": {
+                "description": "The event's status as the calendar server reports it. EventKit cannot change it.",
+                "enum": ["NONE", "CONFIRMED", "TENTATIVE", "CANCELED"],
+                "type": "string"
+              },
+              "structuredLocation": {
+                "additionalProperties": false,
+                "description": "The location with coordinates, when the event stores one. Its title also appears as location.",
+                "properties": {
+                  "latitude": {
+                    "description": "Latitude in degrees, when set.",
+                    "type": "number"
+                  },
+                  "longitude": {
+                    "description": "Longitude in degrees, when set.",
+                    "type": "number"
+                  },
+                  "radius": {
+                    "description": "Radius in meters; zero means the system default.",
+                    "type": "number"
+                  },
+                  "title": {
+                    "description": "Display name of the location.",
+                    "type": "string"
+                  }
+                },
+                "required": ["radius"],
+                "type": "object"
+              },
+              "timeZone": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "IANA time zone the event is anchored to; null for a floating event, including every all-day event."
+              },
+              "title": {
+                "description": "The title of the event.",
+                "type": "string"
+              },
+              "unsupported": {
+                "description": "Projected fields that are null because the stored value cannot be represented.",
+                "items": {
+                  "enum": ["alarms", "recurrence"],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "url": {
+                "description": "The URL attached to the event.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "eventIdentifier",
+              "calendarId",
+              "allDay",
+              "startDate",
+              "endDate",
+              "allDayStartDate",
+              "allDayEndDate",
+              "timeZone",
+              "detached",
+              "recurring",
+              "availability",
+              "status",
+              "attendees",
+              "rawAlarms",
+              "alarms",
+              "recurrenceRules",
+              "recurrence",
+              "unsupported"
+            ],
+            "type": "object"
+          }
+        },
+        "required": ["event"],
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Update supplied fields of an event, an occurrence, or a whole series. Null patch values are rejected; clearFields removes optional values. The returned id can differ from the one supplied: it changes when an occurrence moves or a series splits. A WRITE_APPLIED error means the save succeeded before a later failure; refetch before retrying.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "allowAttendeeNotifications": {
+            "default": false,
+            "description": "Required to change or delete an event that has attendees, because its calendar server may send them an update or cancellation.",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "Id of the event or occurrence, as a read returned it. A seriesId names the whole repeating event.",
+            "type": "string"
+          },
+          "patch": {
+            "additionalProperties": false,
+            "description": "Fields to change; at least one.",
+            "properties": {
+              "alarms": {
+                "description": "Replace all alerts; [] removes them. Each needs exactly one of absoluteDate or relativeOffsetSeconds.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "absoluteDate": {
+                      "description": "Alert at this date and time.",
+                      "type": "string"
+                    },
+                    "emailAddress": {
+                      "description": "Address to email. The provider may not keep it; a WRITE_APPLIED error reports that.",
+                      "type": "string"
+                    },
+                    "relativeOffsetSeconds": {
+                      "description": "Alert this many seconds from the event's start: negative before, zero at, positive after.",
+                      "type": "number"
+                    },
+                    "soundName": {
+                      "description": "System sound to play. The provider may not keep it; a WRITE_APPLIED error reports that.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "allDayEndDate": {
+                "description": "Last day of an all-day event, inclusive; defaults to the start day on creation.",
+                "type": "string"
+              },
+              "allDayStartDate": {
+                "description": "First day of an all-day event, in the host zone. On a patch, a new start alone moves the event and keeps its length in days. Do not combine with startDate or endDate.",
+                "type": "string"
+              },
+              "availability": {
+                "description": "How the event shows on a free/busy schedule; must be one of the calendar's supportedAvailabilities.",
+                "enum": ["BUSY", "FREE", "TENTATIVE", "UNAVAILABLE"],
+                "type": "string"
+              },
+              "calendarId": {
+                "description": "Calendar for the event. On creation, omitting both calendarId and calendarName uses the default calendar; on a patch it moves the event.",
+                "type": "string"
+              },
+              "calendarName": {
+                "description": "Calendar chosen by exact name, ignoring case. No match is NOT_FOUND and several matches are INVALID_ARGUMENT. Mutually exclusive with calendarId.",
+                "type": "string"
+              },
+              "clearFields": {
+                "description": "Optional values to remove. A field cannot be both set and cleared.",
+                "items": {
+                  "enum": [
+                    "NOTES",
+                    "LOCATION",
+                    "URL",
+                    "RECURRENCE",
+                    "TIME_ZONE"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "endDate": {
+                "description": "End of a timed event; must not precede the start. On a patch, a new end alone resizes the event.",
+                "type": "string"
+              },
+              "location": {
+                "description": "Location as text. Replaces any stored coordinates. Mutually exclusive with structuredLocation.",
+                "type": "string"
+              },
+              "notes": {
+                "description": "Notes attached to the event.",
+                "type": "string"
+              },
+              "recurrence": {
+                "additionalProperties": false,
+                "description": "Make the event repeat on one schedule, replacing any stored rules. On a repeating event this needs FUTURE_EVENTS or the series id.",
+                "properties": {
+                  "daysOfMonth": {
+                    "description": "Days 1..31 or -31..-1 counting backward from the end of the month. Monthly rules only.",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  "daysOfWeek": {
+                    "description": "Weekday constraints. Null means unconstrained. Not allowed for daily rules.",
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "day": {
+                          "description": "The weekday to match.",
+                          "enum": [
+                            "SUNDAY",
+                            "MONDAY",
+                            "TUESDAY",
+                            "WEDNESDAY",
+                            "THURSDAY",
+                            "FRIDAY",
+                            "SATURDAY"
+                          ],
+                          "type": "string"
+                        },
+                        "ordinal": {
+                          "description": "Occurrence of this weekday: 1 is first, -1 last; omit for every occurrence. Valid range -53..53 excluding zero; non-null ordinals require monthly or yearly frequency.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": ["day"],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "daysOfWeekNames": {
+                    "description": "Weekday phrases such as tuesday or second tuesday, ignoring case. Ordinals: first through fifth and last through fifth-to-last. Mutually exclusive with daysOfWeek.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "daysOfYear": {
+                    "description": "Year days 1..366 or -366..-1 counting backward from year end. Yearly rules only.",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  "end": {
+                    "additionalProperties": false,
+                    "description": "When repetition stops; null means no specified end.",
+                    "properties": {
+                      "count": {
+                        "description": "Positive number of occurrences; mutually exclusive with until.",
+                        "type": "integer"
+                      },
+                      "until": {
+                        "description": "Inclusive end timestamp; mutually exclusive with count.",
+                        "type": "string"
+                      }
+                    },
+                    "required": [],
+                    "type": "object"
+                  },
+                  "frequency": {
+                    "description": "The unit of repetition.",
+                    "enum": ["DAILY", "WEEKLY", "MONTHLY", "YEARLY"],
+                    "type": "string"
+                  },
+                  "interval": {
+                    "description": "Positive number of frequency units between occurrences.",
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "monthsOfYear": {
+                    "description": "Months 1..12. Yearly rules only.",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  "setPositions": {
+                    "description": "Select positions 1..366 or -366..-1 from occurrences matching the other constraints in each period. Requires another selector.",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  "weeksOfYear": {
+                    "description": "Week numbers 1..53 or -53..-1 counting backward from year end. Yearly rules only.",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": ["frequency", "interval"],
+                "type": "object"
+              },
+              "startDate": {
+                "description": "Start of a timed event. On a patch, a new start alone moves the event and keeps its length.",
+                "type": "string"
+              },
+              "structuredLocation": {
+                "additionalProperties": false,
+                "description": "Location with coordinates, as from a location search. Mutually exclusive with location.",
+                "properties": {
+                  "latitude": {
+                    "description": "Latitude in degrees, between -90 and 90.",
+                    "type": "number"
+                  },
+                  "longitude": {
+                    "description": "Longitude in degrees, between -180 and 180.",
+                    "type": "number"
+                  },
+                  "radiusMeters": {
+                    "description": "Radius in meters; zero or omitted requests the system default.",
+                    "type": "number"
+                  },
+                  "title": {
+                    "description": "Display name of the place; must not be blank.",
+                    "type": "string"
+                  }
+                },
+                "required": ["title", "latitude", "longitude"],
+                "type": "object"
+              },
+              "timeZone": {
+                "description": "IANA time zone a timed event is anchored to; it does not move the event's instants. New timed events default to the host zone. Not allowed for all-day events.",
+                "type": "string"
+              },
+              "title": {
+                "description": "Title of the event; must not be blank.",
+                "type": "string"
+              },
+              "url": {
+                "description": "Absolute URL attached to the event.",
+                "type": "string"
+              }
+            },
+            "required": [],
+            "type": "object"
+          },
+          "span": {
+            "description": "Required when id is one occurrence of a repeating event: THIS_EVENT changes only that occurrence, FUTURE_EVENTS it and every later one. Ignored for an event that does not repeat; a series id always means the whole series.",
+            "enum": ["THIS_EVENT", "FUTURE_EVENTS"],
+            "type": "string"
+          }
+        },
+        "required": ["id", "patch"],
+        "type": "object"
+      },
+      "name": "events_update",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "event": {
+            "additionalProperties": false,
+            "description": "The saved event.",
+            "properties": {
+              "alarms": {
+                "anyOf": [
+                  {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "action": {
+                          "description": "Stored alarm action: display, audio, email, procedure, or unknown.",
+                          "type": "string"
+                        },
+                        "at": {
+                          "description": "The date and time at which the alert triggers.",
+                          "type": "string"
+                        },
+                        "emailAddress": {
+                          "description": "Stored email alarm recipient, when set.",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "description": "AbsoluteAlarm carries at; RelativeAlarm carries offsetSeconds.",
+                          "enum": ["AbsoluteAlarm", "RelativeAlarm"],
+                          "type": "string"
+                        },
+                        "offsetSeconds": {
+                          "description": "Seconds from the start date: negative before, zero at, positive after.",
+                          "type": "number"
+                        },
+                        "soundName": {
+                          "description": "Stored sound name, when set.",
+                          "type": "string"
+                        }
+                      },
+                      "required": ["kind", "action"],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Configured alerts; null when a stored trigger cannot be represented, in which case unsupported lists alarms and rawAlarms holds the stored values."
+              },
+              "allDay": {
+                "description": "Whether the event covers whole days rather than a time span.",
+                "type": "boolean"
+              },
+              "allDayEndDate": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The last day of an all-day event, inclusive; a one-day event has the same start and end. Null for a timed event."
+              },
+              "allDayStartDate": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "The first day of an all-day event, in the host zone; null for a timed event."
+              },
+              "attendees": {
+                "description": "People, rooms, and resources invited to the event. EventKit cannot add, remove, or answer for attendees.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "currentUser": {
+                      "description": "Whether this participant is the user of this Mac.",
+                      "type": "boolean"
+                    },
+                    "email": {
+                      "description": "Email address taken from a mailto: URL, when the address is one.",
+                      "type": "string"
+                    },
+                    "name": {
+                      "description": "Display name, when known.",
+                      "type": "string"
+                    },
+                    "role": {
+                      "description": "The participant's role in the event.",
+                      "enum": [
+                        "UNKNOWN",
+                        "REQUIRED",
+                        "OPTIONAL",
+                        "CHAIR",
+                        "NON_PARTICIPANT"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "description": "Whether the participant accepted, declined, or has yet to answer.",
+                      "enum": [
+                        "UNKNOWN",
+                        "PENDING",
+                        "ACCEPTED",
+                        "DECLINED",
+                        "TENTATIVE",
+                        "DELEGATED",
+                        "COMPLETED",
+                        "IN_PROCESS"
+                      ],
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Whether the participant is a person, room, resource, or group.",
+                      "enum": [
+                        "UNKNOWN",
+                        "PERSON",
+                        "ROOM",
+                        "RESOURCE",
+                        "GROUP"
+                      ],
+                      "type": "string"
+                    },
+                    "url": {
+                      "description": "The participant's address, usually a mailto: URL.",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["status", "role", "type", "currentUser"],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "availability": {
+                "description": "How the event shows on a free/busy schedule.",
+                "enum": [
+                  "NOT_SUPPORTED",
+                  "BUSY",
+                  "FREE",
+                  "TENTATIVE",
+                  "UNAVAILABLE"
+                ],
+                "type": "string"
+              },
+              "birthdayContactIdentifier": {
+                "description": "Contacts identifier of the person a Birthdays-calendar event is for.",
+                "type": "string"
+              },
+              "calendarId": {
+                "description": "Identifier of the owning calendar.",
+                "type": "string"
+              },
+              "creationDate": {
+                "description": "When the event was created.",
+                "type": "string"
+              },
+              "detached": {
+                "description": "Whether this occurrence was edited apart from its repeating series.",
+                "type": "boolean"
+              },
+              "endDate": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "When a timed event ends; null for an all-day event."
+              },
+              "eventIdentifier": {
+                "description": "The identifier EventKit stores for the event, for reference only.",
+                "type": "string"
+              },
+              "externalId": {
+                "description": "Identifier assigned by the calendar server. Occurrences and copies can share it, so it does not identify one event.",
+                "type": "string"
+              },
+              "id": {
+                "description": "Identifier of this event or occurrence. An occurrence of a repeating event is its series identifier, a slash, and its current start. Treat the value as opaque; it changes when an occurrence moves and can change after a write or a sync.",
+                "type": "string"
+              },
+              "location": {
+                "description": "The location of the event as text.",
+                "type": "string"
+              },
+              "modificationDate": {
+                "description": "When the event was last modified.",
+                "type": "string"
+              },
+              "myStatus": {
+                "description": "The current user's own participation status; null when they are not an attendee.",
+                "enum": [
+                  "UNKNOWN",
+                  "PENDING",
+                  "ACCEPTED",
+                  "DECLINED",
+                  "TENTATIVE",
+                  "DELEGATED",
+                  "COMPLETED",
+                  "IN_PROCESS"
+                ],
+                "type": "string"
+              },
+              "notes": {
+                "description": "The notes attached to the event.",
+                "type": "string"
+              },
+              "occurrenceDate": {
+                "description": "The start EventKit reports for this occurrence within its series; null for an event that does not repeat. It is not a stable key: it has been observed to follow a detached occurrence that moves.",
+                "type": "string"
+              },
+              "organizer": {
+                "additionalProperties": false,
+                "description": "Who organized the event; null when it has no organizer.",
+                "properties": {
+                  "currentUser": {
+                    "description": "Whether this participant is the user of this Mac.",
+                    "type": "boolean"
+                  },
+                  "email": {
+                    "description": "Email address taken from a mailto: URL, when the address is one.",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Display name, when known.",
+                    "type": "string"
+                  },
+                  "role": {
+                    "description": "The participant's role in the event.",
+                    "enum": [
+                      "UNKNOWN",
+                      "REQUIRED",
+                      "OPTIONAL",
+                      "CHAIR",
+                      "NON_PARTICIPANT"
+                    ],
+                    "type": "string"
+                  },
+                  "status": {
+                    "description": "Whether the participant accepted, declined, or has yet to answer.",
+                    "enum": [
+                      "UNKNOWN",
+                      "PENDING",
+                      "ACCEPTED",
+                      "DECLINED",
+                      "TENTATIVE",
+                      "DELEGATED",
+                      "COMPLETED",
+                      "IN_PROCESS"
+                    ],
+                    "type": "string"
+                  },
+                  "type": {
+                    "description": "Whether the participant is a person, room, resource, or group.",
+                    "enum": ["UNKNOWN", "PERSON", "ROOM", "RESOURCE", "GROUP"],
+                    "type": "string"
+                  },
+                  "url": {
+                    "description": "The participant's address, usually a mailto: URL.",
+                    "type": "string"
+                  }
+                },
+                "required": ["status", "role", "type", "currentUser"],
+                "type": "object"
+              },
+              "rawAlarms": {
+                "description": "Alarms exactly as stored.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "absoluteDate": {
+                      "description": "Absolute trigger time, when set.",
+                      "type": "string"
+                    },
+                    "action": {
+                      "description": "Stored alarm action: display, audio, email, procedure, or unknown.",
+                      "type": "string"
+                    },
+                    "emailAddress": {
+                      "description": "Stored email alarm recipient, when set.",
+                      "type": "string"
+                    },
+                    "proximity": {
+                      "description": "none, enter, leave, or unknown.",
+                      "enum": ["none", "enter", "leave", "unknown"],
+                      "type": "string"
+                    },
+                    "relativeOffset": {
+                      "description": "Seconds from the start date. Zero alone does not distinguish absolute and relative triggers.",
+                      "type": "number"
+                    },
+                    "soundName": {
+                      "description": "Stored sound name, when set.",
+                      "type": "string"
+                    },
+                    "structuredLocation": {
+                      "additionalProperties": false,
+                      "description": "The location of a geofence trigger, when set.",
+                      "properties": {
+                        "latitude": {
+                          "description": "Latitude in degrees, when set.",
+                          "type": "number"
+                        },
+                        "longitude": {
+                          "description": "Longitude in degrees, when set.",
+                          "type": "number"
+                        },
+                        "radius": {
+                          "description": "Radius in meters; zero means the system default.",
+                          "type": "number"
+                        },
+                        "title": {
+                          "description": "Display name of the location.",
+                          "type": "string"
+                        }
+                      },
+                      "required": ["radius"],
+                      "type": "object"
+                    }
+                  },
+                  "required": ["action", "relativeOffset", "proximity"],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "recurrence": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "daysOfMonth": {
+                        "description": "Days 1..31 or -31..-1 counting backward from the end of the month. Monthly rules only.",
+                        "items": {
+                          "type": "integer"
+                        },
+                        "type": "array"
+                      },
+                      "daysOfWeek": {
+                        "description": "Weekday constraints. Null means unconstrained. Not allowed for daily rules.",
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "day": {
+                              "description": "The weekday to match.",
+                              "enum": [
+                                "SUNDAY",
+                                "MONDAY",
+                                "TUESDAY",
+                                "WEDNESDAY",
+                                "THURSDAY",
+                                "FRIDAY",
+                                "SATURDAY"
+                              ],
+                              "type": "string"
+                            },
+                            "ordinal": {
+                              "description": "Occurrence of this weekday: 1 is first, -1 last; omit for every occurrence. Valid range -53..53 excluding zero; non-null ordinals require monthly or yearly frequency.",
+                              "type": "integer"
+                            }
+                          },
+                          "required": ["day"],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "daysOfYear": {
+                        "description": "Year days 1..366 or -366..-1 counting backward from year end. Yearly rules only.",
+                        "items": {
+                          "type": "integer"
+                        },
+                        "type": "array"
+                      },
+                      "end": {
+                        "additionalProperties": false,
+                        "description": "When repetition stops; null means no specified end.",
+                        "properties": {
+                          "count": {
+                            "description": "Positive number of occurrences; mutually exclusive with until.",
+                            "type": "integer"
+                          },
+                          "until": {
+                            "description": "Inclusive end timestamp; mutually exclusive with count.",
+                            "type": "string"
+                          }
+                        },
+                        "required": [],
+                        "type": "object"
+                      },
+                      "frequency": {
+                        "description": "The unit of repetition.",
+                        "enum": ["DAILY", "WEEKLY", "MONTHLY", "YEARLY"],
+                        "type": "string"
+                      },
+                      "interval": {
+                        "description": "Positive number of frequency units between occurrences.",
+                        "type": "integer"
+                      },
+                      "monthsOfYear": {
+                        "description": "Months 1..12. Yearly rules only.",
+                        "items": {
+                          "type": "integer"
+                        },
+                        "type": "array"
+                      },
+                      "setPositions": {
+                        "description": "Select positions 1..366 or -366..-1 from occurrences matching the other constraints in each period. Requires another selector.",
+                        "items": {
+                          "type": "integer"
+                        },
+                        "type": "array"
+                      },
+                      "weeksOfYear": {
+                        "description": "Week numbers 1..53 or -53..-1 counting backward from year end. Yearly rules only.",
+                        "items": {
+                          "type": "integer"
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "required": ["frequency", "interval"],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "A single repeating schedule; null when the event does not repeat, or when the stored rules cannot be represented, in which case unsupported lists recurrence."
+              },
+              "recurrenceRules": {
+                "description": "Recurrence rules exactly as stored.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "calendarIdentifier": {
+                      "description": "Calendar the rule is evaluated in.",
+                      "type": "string"
+                    },
+                    "daysOfTheMonth": {
+                      "description": "Selector values; empty when unconstrained.",
+                      "items": {
+                        "type": "integer"
+                      },
+                      "type": "array"
+                    },
+                    "daysOfTheWeek": {
+                      "description": "Weekday constraints; empty when unconstrained.",
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "dayOfTheWeek": {
+                            "description": "Weekday, Sunday = 1.",
+                            "type": "integer"
+                          },
+                          "weekNumber": {
+                            "description": "Signed ordinal; zero means every occurrence.",
+                            "type": "integer"
+                          }
+                        },
+                        "required": ["dayOfTheWeek", "weekNumber"],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "daysOfTheYear": {
+                      "description": "Selector values; empty when unconstrained.",
+                      "items": {
+                        "type": "integer"
+                      },
+                      "type": "array"
+                    },
+                    "end": {
+                      "additionalProperties": false,
+                      "description": "When repetition stops; null for no end.",
+                      "properties": {
+                        "endDate": {
+                          "description": "End timestamp, when set.",
+                          "type": "string"
+                        },
+                        "occurrenceCount": {
+                          "description": "Number of occurrences; zero when unset.",
+                          "type": "integer"
+                        }
+                      },
+                      "required": ["occurrenceCount"],
+                      "type": "object"
+                    },
+                    "firstDayOfTheWeek": {
+                      "description": "First day of the week, Sunday = 1; zero is unset.",
+                      "type": "integer"
+                    },
+                    "frequency": {
+                      "description": "daily, weekly, monthly, yearly, or unknown.",
+                      "enum": [
+                        "daily",
+                        "weekly",
+                        "monthly",
+                        "yearly",
+                        "unknown"
+                      ],
+                      "type": "string"
+                    },
+                    "interval": {
+                      "description": "Frequency units between occurrences.",
+                      "type": "integer"
+                    },
+                    "monthsOfTheYear": {
+                      "description": "Selector values; empty when unconstrained.",
+                      "items": {
+                        "type": "integer"
+                      },
+                      "type": "array"
+                    },
+                    "setPositions": {
+                      "description": "Selector values; empty when unconstrained.",
+                      "items": {
+                        "type": "integer"
+                      },
+                      "type": "array"
+                    },
+                    "weeksOfTheYear": {
+                      "description": "Selector values; empty when unconstrained.",
+                      "items": {
+                        "type": "integer"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "frequency",
+                    "calendarIdentifier",
+                    "interval",
+                    "firstDayOfTheWeek",
+                    "daysOfTheWeek",
+                    "daysOfTheMonth",
+                    "daysOfTheYear",
+                    "weeksOfTheYear",
+                    "monthsOfTheYear",
+                    "setPositions"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "recurring": {
+                "description": "Whether the event carries recurrence rules.",
+                "type": "boolean"
+              },
+              "seriesId": {
+                "description": "Identifier shared by every occurrence of a repeating event; null for an event that does not repeat. As an id it names the whole series.",
+                "type": "string"
+              },
+              "startDate": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "When a timed event starts; null for an all-day event."
+              },
+              "status": {
+                "description": "The event's status as the calendar server reports it. EventKit cannot change it.",
+                "enum": ["NONE", "CONFIRMED", "TENTATIVE", "CANCELED"],
+                "type": "string"
+              },
+              "structuredLocation": {
+                "additionalProperties": false,
+                "description": "The location with coordinates, when the event stores one. Its title also appears as location.",
+                "properties": {
+                  "latitude": {
+                    "description": "Latitude in degrees, when set.",
+                    "type": "number"
+                  },
+                  "longitude": {
+                    "description": "Longitude in degrees, when set.",
+                    "type": "number"
+                  },
+                  "radius": {
+                    "description": "Radius in meters; zero means the system default.",
+                    "type": "number"
+                  },
+                  "title": {
+                    "description": "Display name of the location.",
+                    "type": "string"
+                  }
+                },
+                "required": ["radius"],
+                "type": "object"
+              },
+              "timeZone": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "IANA time zone the event is anchored to; null for a floating event, including every all-day event."
+              },
+              "title": {
+                "description": "The title of the event.",
+                "type": "string"
+              },
+              "unsupported": {
+                "description": "Projected fields that are null because the stored value cannot be represented.",
+                "items": {
+                  "enum": ["alarms", "recurrence"],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "url": {
+                "description": "The URL attached to the event.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "eventIdentifier",
+              "calendarId",
+              "allDay",
+              "startDate",
+              "endDate",
+              "allDayStartDate",
+              "allDayEndDate",
+              "timeZone",
+              "detached",
+              "recurring",
+              "availability",
+              "status",
+              "attendees",
+              "rawAlarms",
+              "alarms",
+              "recurrenceRules",
+              "recurrence",
+              "unsupported"
+            ],
+            "type": "object"
+          }
+        },
+        "required": ["event"],
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true,
+        "readOnlyHint": false
+      },
+      "description": "Delete an event, one occurrence, an occurrence and those after it, or a whole series. Missing identifiers return a NOT_FOUND error.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "allowAttendeeNotifications": {
+            "default": false,
+            "description": "Required to change or delete an event that has attendees, because its calendar server may send them an update or cancellation.",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "Id of the event or occurrence, as a read returned it. A seriesId names the whole repeating event.",
+            "type": "string"
+          },
+          "span": {
+            "description": "Required when id is one occurrence of a repeating event: THIS_EVENT changes only that occurrence, FUTURE_EVENTS it and every later one. Ignored for an event that does not repeat; a series id always means the whole series.",
+            "enum": ["THIS_EVENT", "FUTURE_EVENTS"],
+            "type": "string"
+          }
+        },
+        "required": ["id"],
+        "type": "object"
+      },
+      "name": "events_delete",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "deletedId": {
+            "description": "Identifier of the deleted object.",
+            "type": "string"
+          }
+        },
+        "required": ["deletedId"],
+        "type": "object"
+      }
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
         "idempotentHint": false,
         "openWorldHint": false,
         "readOnlyHint": false

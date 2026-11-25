@@ -5,13 +5,7 @@ extension EventRecord {
   var startDate: String? { allDay ? nil : timestamp(start) }
   var endDate: String? { allDay ? nil : timestamp(end) }
   var allDayStartDate: String? { allDay ? localDay(start) : nil }
-  // The last day the event covers. An all-day end stored at the following midnight is
-  // exclusive, so it belongs to the day before.
-  var allDayEndDate: String? {
-    guard allDay else { return nil }
-    let exclusive = end > start && end == startOfLocalDay(containing: end)
-    return localDay(exclusive ? end.addingTimeInterval(-1) : end)
-  }
+  var allDayEndDate: String? { allDay ? lastAllDayDay(start: start, end: end) : nil }
   // The current user's own participation, when they are an attendee.
   var myStatus: ParticipantStatus? { attendees.first(where: \.currentUser)?.status }
 }

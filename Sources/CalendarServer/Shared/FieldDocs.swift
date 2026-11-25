@@ -222,4 +222,71 @@ enum FieldDocs {
       "Delete a calendar and every event in it. A calendar that still has events requires allowNonEmpty; the check covers 1970 through ten years ahead, so events outside that range are not detected. Deleting events you organize can notify their attendees. Concurrent external edits are not locked."
     static let allowNonEmpty = "Delete the calendar even though it still has events."
   }
+  enum LocationSearch {
+    static let description =
+      "Find places or addresses through Apple Maps. Select a result and use its name and coordinates as an event's structuredLocation. Sends the query to Apple; does not change events."
+    static let query = "Place name or address. Include a city or region to narrow the search."
+    static let limit = "Maximum candidates to return, from 1 through 10; defaults to 5."
+    static let name = "Name of the place, when available."
+    static let address = "Formatted address or place description, when available."
+    static let latitude = "Latitude in degrees, between -90 and 90."
+    static let longitude = "Longitude in degrees, between -180 and 180."
+  }
+  enum EventInput {
+    static let calendarId =
+      "Calendar for the event. On creation, omitting both calendarId and calendarName uses the default calendar; on a patch it moves the event."
+    static let calendarName =
+      "Calendar chosen by exact name, ignoring case. No match is NOT_FOUND and several matches are INVALID_ARGUMENT. Mutually exclusive with calendarId."
+    static let title = "Title of the event; must not be blank."
+    static let notes = "Notes attached to the event."
+    static let location =
+      "Location as text. Replaces any stored coordinates. Mutually exclusive with structuredLocation."
+    static let structuredLocation =
+      "Location with coordinates, as from a location search. Mutually exclusive with location."
+    static let url = "Absolute URL attached to the event."
+    static let startDate =
+      "Start of a timed event. On a patch, a new start alone moves the event and keeps its length."
+    static let endDate =
+      "End of a timed event; must not precede the start. On a patch, a new end alone resizes the event."
+    static let allDayStartDate =
+      "First day of an all-day event, in the host zone. On a patch, a new start alone moves the event and keeps its length in days. Do not combine with startDate or endDate."
+    static let allDayEndDate =
+      "Last day of an all-day event, inclusive; defaults to the start day on creation."
+    static let timeZone =
+      "IANA time zone a timed event is anchored to; it does not move the event's instants. New timed events default to the host zone. Not allowed for all-day events."
+    static let availability =
+      "How the event shows on a free/busy schedule; must be one of the calendar's supportedAvailabilities."
+    static let alarms =
+      "Replace all alerts; [] removes them. Each needs exactly one of absoluteDate or relativeOffsetSeconds."
+    static let recurrence =
+      "Make the event repeat on one schedule, replacing any stored rules. On a repeating event this needs FUTURE_EVENTS or the series id."
+    static let clearFields = "Optional values to remove. A field cannot be both set and cleared."
+  }
+  enum StructuredLocationInput {
+    static let title = "Display name of the place; must not be blank."
+    static let radiusMeters = "Radius in meters; zero or omitted requests the system default."
+  }
+  enum AlarmInput {
+    static let absoluteDate = "Alert at this date and time."
+    static let relativeOffsetSeconds =
+      "Alert this many seconds from the event's start: negative before, zero at, positive after."
+    static let soundName =
+      "System sound to play. The provider may not keep it; a WRITE_APPLIED error reports that."
+    static let emailAddress =
+      "Address to email. The provider may not keep it; a WRITE_APPLIED error reports that."
+  }
+  enum EventWrite {
+    static let id =
+      "Id of the event or occurrence, as a read returned it. A seriesId names the whole repeating event."
+    static let span =
+      "Required when id is one occurrence of a repeating event: THIS_EVENT changes only that occurrence, FUTURE_EVENTS it and every later one. Ignored for an event that does not repeat; a series id always means the whole series."
+    static let allowAttendeeNotifications =
+      "Required to change or delete an event that has attendees, because its calendar server may send them an update or cancellation."
+    static let create =
+      "Create an event in an editable calendar. Supply startDate and endDate for a timed event, or allDayStartDate for an all-day one. Attendees cannot be added. If a step after the save fails, the error has code WRITE_APPLIED; search before retrying, because creation is not idempotent."
+    static let update =
+      "Update supplied fields of an event, an occurrence, or a whole series. Null patch values are rejected; clearFields removes optional values. The returned id can differ from the one supplied: it changes when an occurrence moves or a series splits. A WRITE_APPLIED error means the save succeeded before a later failure; refetch before retrying."
+    static let delete =
+      "Delete an event, one occurrence, an occurrence and those after it, or a whole series. Missing identifiers return a NOT_FOUND error."
+  }
 }

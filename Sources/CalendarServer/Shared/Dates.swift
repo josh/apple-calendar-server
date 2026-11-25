@@ -89,3 +89,10 @@ func orderEvents(_ items: [EventRecord], by field: EventSortField, direction: So
     return result ?? (a.start == b.start ? a.id < b.id : a.start < b.start)
   }
 }
+
+// The last host-zone day an all-day event covers. An end stored at the following
+// midnight is exclusive, so it belongs to the day before.
+func lastAllDayDay(start: Date, end: Date) -> String {
+  let exclusive = end > start && end == startOfLocalDay(containing: end)
+  return localDay(exclusive ? end.addingTimeInterval(-1) : end)
+}

@@ -10,6 +10,8 @@ enum ErrorCode: String, Encodable, Sendable {
   case unsupported = "UNSUPPORTED"
   case unsupportedOperation = "UNSUPPORTED_OPERATION"
   case calendarNotEmpty = "CALENDAR_NOT_EMPTY"
+  case spanRequired = "SPAN_REQUIRED"
+  case hasAttendees = "HAS_ATTENDEES"
   case resultTooLarge = "RESULT_TOO_LARGE"
   case writeFailed = "WRITE_FAILED"
   case writeApplied = "WRITE_APPLIED"
@@ -31,6 +33,12 @@ struct ServerError: Error, CustomStringConvertible, Sendable {
   }
   static func calendarNotEmpty(_ message: String) -> Self {
     .init(code: .calendarNotEmpty, message: message)
+  }
+  static func spanRequired(_ message: String) -> Self {
+    .init(code: .spanRequired, message: message)
+  }
+  static func hasAttendees(_ message: String) -> Self {
+    .init(code: .hasAttendees, message: message)
   }
   static func resultTooLarge(_ message: String) -> Self {
     .init(code: .resultTooLarge, message: message)

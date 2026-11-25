@@ -61,3 +61,16 @@ struct GraphQLCalendarDeleteArguments: Decodable {
   let id: String
   let allowNonEmpty: Bool
 }
+
+struct GraphQLEventUpdateArguments: Decodable {
+  let id: String
+  let patch: EventInput
+  let span: EventSpan?
+  let allowAttendeeNotifications: Bool
+}
+
+struct GraphQLEventDeleteArguments: Decodable {
+  let id: String
+  let span: EventSpan?
+  let allowAttendeeNotifications: Bool
+}

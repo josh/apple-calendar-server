@@ -12,3 +12,14 @@ func writeCalendar(_ request: CalendarWrite) async throws -> CalendarRecord {
 func deleteCalendar(id: String, allowNonEmpty: Bool) async throws -> DeleteResult {
   try await executeCalendarDelete(id: id, allowNonEmpty: allowNonEmpty)
 }
+func writeEvent(_ request: EventWrite) async throws -> EventRecord {
+  try await onMainActor { try executeEventWrite(request) }
+}
+func deleteEvent(id: String, span: EventSpan?, allowAttendeeNotifications: Bool) async throws
+  -> DeleteResult
+{
+  try await onMainActor {
+    try executeEventDelete(
+      id: id, span: span, allowAttendeeNotifications: allowAttendeeNotifications)
+  }
+}

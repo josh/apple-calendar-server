@@ -144,3 +144,37 @@ struct EventSearchArguments: Decodable {
     cursor = try c.decodeIfPresent(String.self, forKey: .cursor)
   }
 }
+
+struct EventUpdateArguments: Decodable {
+  let id: String
+  let patch: EventInput
+  let span: EventSpan?
+  let allowAttendeeNotifications: Bool?
+  enum CodingKeys: String, CodingKey, CaseIterable {
+    case id, patch, span, allowAttendeeNotifications
+  }
+  init(from decoder: Decoder) throws {
+    let c = try decoder.inputContainer(keyedBy: CodingKeys.self)
+    id = try c.decode(String.self, forKey: .id)
+    guard !id.isEmpty else { throw ServerError.invalidArgument("id required") }
+    patch = try c.decode(EventInput.self, forKey: .patch)
+    span = try c.decodeIfPresent(EventSpan.self, forKey: .span)
+    allowAttendeeNotifications = try c.decodeIfPresent(
+      Bool.self, forKey: .allowAttendeeNotifications)
+  }
+}
+
+struct EventDeleteArguments: Decodable {
+  let id: String
+  let span: EventSpan?
+  let allowAttendeeNotifications: Bool?
+  enum CodingKeys: String, CodingKey, CaseIterable { case id, span, allowAttendeeNotifications }
+  init(from decoder: Decoder) throws {
+    let c = try decoder.inputContainer(keyedBy: CodingKeys.self)
+    id = try c.decode(String.self, forKey: .id)
+    guard !id.isEmpty else { throw ServerError.invalidArgument("id required") }
+    span = try c.decodeIfPresent(EventSpan.self, forKey: .span)
+    allowAttendeeNotifications = try c.decodeIfPresent(
+      Bool.self, forKey: .allowAttendeeNotifications)
+  }
+}

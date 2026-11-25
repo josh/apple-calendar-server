@@ -24,6 +24,10 @@ private struct EventOutput: Encodable {
     try c.encode(event, forKey: .event)
   }
 }
+private struct LocationSearchOutput: Encodable {
+  let items: [LocationSearchResult]
+  enum CodingKeys: String, CodingKey { case items }
+}
 private struct SummaryOutput: Encodable {
   let items: [CalendarSummary]
   enum CodingKeys: String, CodingKey { case items }
@@ -403,7 +407,138 @@ private func toolsCatalog() -> [Tool] {
       .name: describe(string, FieldDocs.CalendarPatch.name),
       .color: describe(string, FieldDocs.CalendarPatch.color),
     ])
+  let alarmInput = schema(
+    AlarmInput.CodingKeys.self,
+    [
+      .absoluteDate: describe(string, FieldDocs.AlarmInput.absoluteDate),
+      .relativeOffsetSeconds: describe(number, FieldDocs.AlarmInput.relativeOffsetSeconds),
+      .soundName: describe(string, FieldDocs.AlarmInput.soundName),
+      .emailAddress: describe(string, FieldDocs.AlarmInput.emailAddress),
+    ])
+  let placeInput = schema(
+    StructuredLocationInput.CodingKeys.self,
+    [
+      .title: describe(string, FieldDocs.StructuredLocationInput.title),
+      .latitude: describe(number, FieldDocs.LocationSearch.latitude),
+      .longitude: describe(number, FieldDocs.LocationSearch.longitude),
+      .radiusMeters: describe(number, FieldDocs.StructuredLocationInput.radiusMeters),
+    ], required: [.title, .latitude, .longitude])
+  let ruleInput = schema(
+    RecurrenceInput.CodingKeys.self,
+    [
+      .frequency: describe(frequency, FieldDocs.Schedule.frequency),
+      .interval: describe(primitive(.integer, ["minimum": 1]), FieldDocs.Schedule.interval),
+      .daysOfWeek: describe(
+        array(
+          schema(
+            RecurrenceInput.Day.CodingKeys.self,
+            [
+              .day: describe(weekday, FieldDocs.ScheduleDay.day),
+              .ordinal: describe(integer, FieldDocs.ScheduleDay.ordinal),
+            ], required: [.day])), FieldDocs.Schedule.daysOfWeek),
+      .daysOfWeekNames: describe(array(string), FieldDocs.Schedule.daysOfWeekNames),
+      .daysOfMonth: describe(integers, FieldDocs.Schedule.daysOfMonth),
+      .monthsOfYear: describe(integers, FieldDocs.Schedule.monthsOfYear),
+      .weeksOfYear: describe(integers, FieldDocs.Schedule.weeksOfYear),
+      .daysOfYear: describe(integers, FieldDocs.Schedule.daysOfYear),
+      .setPositions: describe(integers, FieldDocs.Schedule.setPositions),
+      .end: describe(
+        schema(
+          RecurrenceInput.End.CodingKeys.self,
+          [
+            .until: describe(string, FieldDocs.ScheduleEnd.until),
+            .count: describe(integer, FieldDocs.ScheduleEnd.count),
+          ]), FieldDocs.Schedule.end),
+    ], required: [.frequency, .interval])
+  let writableAvailability = enumeration(
+    EventAvailability.allCases.filter { $0 != .notSupported }.map(\.rawValue))
+  // Fields both create and patch accept; only a patch has clearFields.
+  func eventInput(creating: Bool) -> Value {
+    var properties: [String: Value] = [:]
+    let fields: KeyValuePairs<EventInput.CodingKeys, Value> = [
+      .calendarId: describe(string, FieldDocs.EventInput.calendarId),
+      .calendarName: describe(string, FieldDocs.EventInput.calendarName),
+      .title: describe(string, FieldDocs.EventInput.title),
+      .notes: describe(string, FieldDocs.EventInput.notes),
+      .location: describe(string, FieldDocs.EventInput.location),
+      .structuredLocation: describe(placeInput, FieldDocs.EventInput.structuredLocation),
+      .url: describe(string, FieldDocs.EventInput.url),
+      .startDate: describe(string, FieldDocs.EventInput.startDate),
+      .endDate: describe(string, FieldDocs.EventInput.endDate),
+      .allDayStartDate: describe(string, FieldDocs.EventInput.allDayStartDate),
+      .allDayEndDate: describe(string, FieldDocs.EventInput.allDayEndDate),
+      .timeZone: describe(string, FieldDocs.EventInput.timeZone),
+      .availability: describe(writableAvailability, FieldDocs.EventInput.availability),
+      .alarms: describe(array(alarmInput), FieldDocs.EventInput.alarms),
+      .recurrence: describe(ruleInput, FieldDocs.EventInput.recurrence),
+    ]
+    for (key, value) in fields { properties[key.stringValue] = value }
+    if !creating {
+      properties[EventInput.CodingKeys.clearFields.stringValue] = describe(
+        array(enumeration(EventClearValue.allCases.map(\.rawValue))),
+        FieldDocs.EventInput.clearFields)
+    }
+    return object(
+      properties, required: creating ? [EventInput.CodingKeys.title.stringValue] : [])
+  }
+  let span = describe(enumeration(EventSpan.allCases.map(\.rawValue)), FieldDocs.EventWrite.span)
+  let allowNotifications = describe(
+    primitive(.boolean, ["default": false]), FieldDocs.EventWrite.allowAttendeeNotifications)
+  // Event writes reach the calendar's server, which may notify other people.
+  let eventCreated = Tool.Annotations(
+    readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true)
+  let eventChanged = Tool.Annotations(
+    readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true)
+  let locationSearchResult = schema(
+    LocationSearchResult.CodingKeys.self,
+    [
+      .name: describe(string, FieldDocs.LocationSearch.name),
+      .address: describe(string, FieldDocs.LocationSearch.address),
+      .latitude: describe(number, FieldDocs.LocationSearch.latitude),
+      .longitude: describe(number, FieldDocs.LocationSearch.longitude),
+    ], required: [.latitude, .longitude])
   return [
+    Tool(
+      name: ToolName.locationsSearch.rawValue,
+      description: FieldDocs.LocationSearch.description,
+      inputSchema: schema(
+        LocationSearchArguments.CodingKeys.self,
+        [
+          .query: describe(string, FieldDocs.LocationSearch.query),
+          .limit: describe(
+            primitive(.integer, ["minimum": 1, "maximum": 10, "default": 5]),
+            FieldDocs.LocationSearch.limit),
+        ], required: [.query]),
+      annotations: .init(readOnlyHint: true, destructiveHint: false, openWorldHint: true),
+      outputSchema: schema(
+        LocationSearchOutput.CodingKeys.self,
+        [.items: array(locationSearchResult)], required: [.items])),
+    Tool(
+      name: ToolName.eventsCreate.rawValue,
+      description: FieldDocs.EventWrite.create,
+      inputSchema: eventInput(creating: true), annotations: eventCreated,
+      outputSchema: eventResult(event, "The saved event.")),
+    Tool(
+      name: ToolName.eventsUpdate.rawValue,
+      description: FieldDocs.EventWrite.update,
+      inputSchema: schema(
+        EventUpdateArguments.CodingKeys.self,
+        [
+          .id: describe(string, FieldDocs.EventWrite.id),
+          .patch: describe(eventInput(creating: false), "Fields to change; at least one."),
+          .span: span, .allowAttendeeNotifications: allowNotifications,
+        ], required: [.id, .patch]),
+      annotations: eventChanged, outputSchema: eventResult(event, "The saved event.")),
+    Tool(
+      name: ToolName.eventsDelete.rawValue,
+      description: FieldDocs.EventWrite.delete,
+      inputSchema: schema(
+        EventDeleteArguments.CodingKeys.self,
+        [
+          .id: describe(string, FieldDocs.EventWrite.id),
+          .span: span, .allowAttendeeNotifications: allowNotifications,
+        ], required: [.id]),
+      annotations: eventChanged, outputSchema: deleted),
     Tool(
       name: ToolName.calendarsCreate.rawValue,
       description:
@@ -544,8 +679,12 @@ enum ToolName: String {
   case calendarsSummary = "calendars_summary"
   case calendarsUpdate = "calendars_update"
   case defaultsGet = "defaults_get"
+  case eventsCreate = "events_create"
+  case eventsDelete = "events_delete"
   case eventsGet = "events_get"
   case eventsSearch = "events_search"
+  case eventsUpdate = "events_update"
+  case locationsSearch = "locations_search"
 }
 private func callTool(_ tool: ToolName, _ params: CallTool.Parameters) async throws
   -> CallTool.Result
@@ -590,7 +729,28 @@ private func callTool(_ tool: ToolName, _ params: CallTool.Parameters) async thr
   func savedCalendar(_ request: CalendarWrite) async throws -> CallTool.Result {
     try result(CalendarOutput(calendar: try await writeCalendar(request)))
   }
+  func savedEvent(_ request: EventWrite) async throws -> CallTool.Result {
+    try result(EventOutput(event: MCPEvent(record: try await writeEvent(request))))
+  }
   switch tool {
+  case .locationsSearch:
+    return try await result(
+      LocationSearchOutput(items: searchLocations(arguments(LocationSearchArguments.self))))
+  case .eventsCreate:
+    let input = try arguments(EventInput.self)
+    return try await savedEvent(.create(changes: eventChanges(input, creating: true)))
+  case .eventsUpdate:
+    let update = try arguments(EventUpdateArguments.self)
+    return try await savedEvent(
+      .update(
+        id: update.id, changes: eventChanges(update.patch, creating: false), span: update.span,
+        allowAttendeeNotifications: update.allowAttendeeNotifications ?? false))
+  case .eventsDelete:
+    let delete = try arguments(EventDeleteArguments.self)
+    return try await result(
+      deleteEvent(
+        id: delete.id, span: delete.span,
+        allowAttendeeNotifications: delete.allowAttendeeNotifications ?? false))
   case .calendarsCreate:
     let input = try arguments(CalendarInput.self)
     return try await savedCalendar(
